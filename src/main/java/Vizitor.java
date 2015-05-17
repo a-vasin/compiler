@@ -14,11 +14,14 @@ import java.util.*;
 public class Vizitor extends ProgrammingLanguageBaseVisitor<Pair<Type, List<String>>> {
 
     private int varCounter = 0;
+    private int helpCounter = 0;
     private int labelCounter = 0;
+    private int constCounter = 0;
     private Map<String, Type> variables = new HashMap<>();
     private Map<String, Pair<Type, List<Type>>> functions = new HashMap<>();
     private Stack<Integer> endLabels = new Stack<>();
     private Stack<Integer> endWhileLabels = new Stack<>();
+    private List<String> constants = new ArrayList<>();
 
     private String getLLVMType(Type type) {
         switch (type) {
@@ -37,7 +40,7 @@ public class Vizitor extends ProgrammingLanguageBaseVisitor<Pair<Type, List<Stri
 
     public Pair<Type, List<String>> visitParse(@NotNull ProgrammingLanguageParser.ParseContext ctx) {
         List<String> code = new LinkedList<>();
-        code.add("@.read_int = private unnamed_addr constant [3 x i8] c\"%d\\00\", align 1");
+        code.add("\n@.read_int = private unnamed_addr constant [3 x i8] c\"%d\\00\", align 1");
         code.add("@.read_str = private unnamed_addr constant [6 x i8] c\"%255s\\00\", align 1");
         code.add("@.write_int = private unnamed_addr constant [3 x i8] c\"%d\\00\", align 1");
         code.add("@.write_str = private unnamed_addr constant [3 x i8] c\"%s\\00\", align 1");
@@ -50,6 +53,8 @@ public class Vizitor extends ProgrammingLanguageBaseVisitor<Pair<Type, List<Stri
         }
         code.add("declare i32 @scanf(i8*, ...) nounwind\n");
         code.add("declare i32 @printf(i8*, ...) nounwind\n");
+        code.add("declare void @llvm.memcpy.p0i8.p0i8.i32(i8* nocapture, i8* nocapture, i32, i32, i1) nounwind\n");
+        code.addAll(0, constants);
         return new Pair<>(null, code);
     }
 
@@ -308,12 +313,11 @@ public class Vizitor extends ProgrammingLanguageBaseVisitor<Pair<Type, List<Stri
             Type type = expression.getKey();
             switch (type) {
                 case INT:
-                    //code.add("\t%int_ptr = load i32* %tmp" + (varCounter - 1) + ", align 4");
                     code.add("\tcall i32 (i8*, ...)* @printf(i8* getelementptr inbounds ([3 x i8]* @.write_int, i32 0, i32 0), i32 %tmp" + (varCounter - 1) + ") nounwind");
                     break;
                 case STRING:
-                    code.add("\t%str_ptr = getelementptr inbounds [256 x i8]* %tmp" + (varCounter - 1) + ", i32 0, i32 0");
-                    code.add("\tcall i32 (i8*, ...)* @printf(i8* getelementptr inbounds ([3 x i8]* @.write_str, i32 0, i32 0), i8* %str_ptr) nounwind");
+                    code.add("\t%str_ptr" + helpCounter++ + " = getelementptr inbounds [256 x i8]* %tmp" + (varCounter - 1) + ", i32 0, i32 0");
+                    code.add("\tcall i32 (i8*, ...)* @printf(i8* getelementptr inbounds ([3 x i8]* @.write_str, i32 0, i32 0), i8* %str_ptr" + (helpCounter - 1) + ") nounwind");
                     break;
                 case BOOLEAN:
                     int labelTrue = labelCounter++;
@@ -530,9 +534,6 @@ public class Vizitor extends ProgrammingLanguageBaseVisitor<Pair<Type, List<Stri
             code.add("\tstore i1 " + (ctx.Bool().getText().equals("true") ? 1 : 0) + ", i1* %tmp" + (varCounter - 1));
             code.add("\t%tmp" + varCounter++ + " = load i1* %tmp" + (varCounter - 2));
             return new Pair<>(Type.BOOLEAN, code);
-        } else if (ctx.String() != null) {
-            //TODO: Add string representation
-            throw new UnsupportedOperationException();
         } else if (ctx.Int() != null) {
             code.add("\t%tmp" + varCounter++ + " = alloca i32");
             code.add("\tstore i32 " + ctx.Int().getText() + ", i32* %tmp" + (varCounter - 1));
@@ -543,6 +544,16 @@ public class Vizitor extends ProgrammingLanguageBaseVisitor<Pair<Type, List<Stri
         } else {
             throw new UnsupportedOperationException();
         }
+    }
+
+    private int countNewStrings(String str) {
+        int result = 0;
+        for (int i = 0; i < str.length() - 2; ++i) {
+            if (str.substring(i, i + 3).equals("\\0A")){
+                result += 1;
+            }
+        }
+        return result;
     }
 
     //TODO add index? lookup
@@ -557,7 +568,21 @@ public class Vizitor extends ProgrammingLanguageBaseVisitor<Pair<Type, List<Stri
             return new Pair<>(variables.get(id), code);
         } else if (ctx.String() != null) {
             String str = ctx.String().getText();
-            code.add("\t%tmp" + varCounter++ + " = [" + str.length() + " x i8] c\"" + str + "\\00\", align 1");
+            str = str.substring(1, str.length() - 1);
+            if (str.length() > 255) {
+                str = str.substring(0, 255);
+            }
+
+            String constant = "@.str" + constCounter++  + " = private unnamed_addr constant [256 x i8] c\"" + str;
+            int newStr = countNewStrings(str);
+            for (int i = 0; i < 256 - str.length() + newStr * 2; ++i) {
+                constant += "\\00";
+            }
+            constant += "\", align 1";
+            constants.add(constant);
+            code.add("\t%tmp" + varCounter++ + " = alloca [256 x i8]");
+            code.add("\t%help_tmp" + helpCounter++ + " = bitcast [256 x i8]* %tmp" + (varCounter - 1) + " to i8*");
+            code.add("\tcall void @llvm.memcpy.p0i8.p0i8.i32(i8* %help_tmp" + (helpCounter - 1) + ", i8* getelementptr inbounds ([256 x i8]* @.str" + (constCounter - 1) + ", i32 0, i32 0), i32 256, i32 1, i1 false)");
             return new Pair<>(Type.STRING, code);
         } else if (ctx.expression() != null) {
             return visitExpression(ctx.expression());
@@ -582,11 +607,9 @@ public class Vizitor extends ProgrammingLanguageBaseVisitor<Pair<Type, List<Stri
         List<String> code = expr.getValue();
         switch (expr.getKey()) {
             case INT:
-                //code.add("\t%tmp" + varCounter++ + " = load i32* %tmp" + (varCounter - 2));
                 code.add("\tstore i32 %tmp" + (varCounter - 1) + ", i32* %var_" + id + ", align 4");
                 break;
             case BOOLEAN:
-                //code.add("\t%tmp" + varCounter++ + " = load i1* %tmp" + (varCounter - 2));
                 code.add("\tstore i1 %tmp" + (varCounter - 1) + ", i1* %var_" + id + ", align 4");
                 break;
         }

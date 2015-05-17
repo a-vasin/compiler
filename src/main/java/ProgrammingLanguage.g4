@@ -97,8 +97,7 @@ mulExpr
   ;  
   
 atom  
-  :  Int  
-  |  String  
+  :  Int
   |  Bool  
   |  lookup  
   ;  
@@ -137,6 +136,7 @@ Else	: 'else' ;
 Union : 'union' ;
 Write : 'write' ;
 Read  : 'read' ;
+Length : 'length';
 
 Void_type : 'void';
 Int_type : 'int';
