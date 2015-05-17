@@ -293,8 +293,8 @@ public class Vizitor extends ProgrammingLanguageBaseVisitor<Pair<Type, List<Stri
                     code.add("\tcall i32 (i8*, ...)* @scanf(i8* getelementptr inbounds ([3 x i8]* @.read_int, i32 0, i32 0), i32* %var_" + id + ") nounwind");
                     break;
                 case STRING:
-                    code.add("\t%ptr = getelementptr inbounds [256 x i8]* %var_" + id + ", i32 0, i32 0");
-                    code.add("\tcall i32 (i8*, ...)* @scanf(i8* getelementptr inbounds ([6 x i8]* @.read_str, i32 0, i32 0), i8* %ptr) nounwind");
+                    code.add("\t%ptr" + helpCounter++ + " = getelementptr inbounds [256 x i8]* %var_" + id + ", i32 0, i32 0");
+                    code.add("\tcall i32 (i8*, ...)* @scanf(i8* getelementptr inbounds ([6 x i8]* @.read_str, i32 0, i32 0), i8* %ptr" + (helpCounter - 1) + ") nounwind");
                     break;
                 case BOOLEAN:
                     code.add("\t%bool_tmp" + varCounter++ + " = alloca i32");
@@ -565,6 +565,10 @@ public class Vizitor extends ProgrammingLanguageBaseVisitor<Pair<Type, List<Stri
                 throw new IllegalArgumentException("Undeclared variable: " + id);
             }
             code.add("\t%tmp" + varCounter++ + " = load " + getLLVMType(variables.get(id)) + "* %var_" + id);
+            if (variables.get(id) == Type.STRING) {
+                code.add("\t%tmp" + varCounter++ + " = alloca [256 x i8]");
+                code.add("\tstore [256 x i8] %tmp" + (varCounter - 2) + ", [256 x i8]* %tmp" + (varCounter - 1));
+            }
             return new Pair<>(variables.get(id), code);
         } else if (ctx.String() != null) {
             String str = ctx.String().getText();
