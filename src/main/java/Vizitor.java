@@ -8,9 +8,9 @@ import org.antlr.v4.runtime.tree.TerminalNode;
 
 import java.util.*;
 
- /**
-  * @author Rabo
-  */
+/**
+ * @author Rabo
+ */
 public class Vizitor extends ProgrammingLanguageBaseVisitor<Pair<Type, List<String>>> {
 
     private int varCounter = 0;
@@ -130,7 +130,7 @@ public class Vizitor extends ProgrammingLanguageBaseVisitor<Pair<Type, List<Stri
 
         Type returnType = Type.VOID;
 
-        if(ctx.expression() != null) {
+        if (ctx.expression() != null) {
             Pair<Type, List<String>> returnStatement = visitExpression(ctx.expression());
             returnType = returnStatement.getKey();
             code.addAll(returnStatement.getValue());
@@ -341,6 +341,15 @@ public class Vizitor extends ProgrammingLanguageBaseVisitor<Pair<Type, List<Stri
                     throw new UnsupportedOperationException("Can not write void type");
             }
             return new Pair<>(Type.VOID, code);
+        } else if (ctx.Length() != null) {
+            Pair<Type, List<String>> expression = visitExpression(ctx.expression());
+            if (expression.getKey() != Type.STRING) {
+                throw new IllegalArgumentException("Length function works with strings only");
+            }
+            code.addAll(expression.getValue());
+            code.add("%help_tmp" + helpCounter++ + " = getelementptr inbounds [256 x i8]* %tmp" + (varCounter - 1) + ", i32 0, i32 0");
+            code.add("%tmp" + varCounter++ + " = call i32 @strlen(i8* %help_tmp" + (helpCounter - 1) + ") nounwind readonly");
+            return new Pair<>(Type.INT, code);
         } else {
             throw new UnsupportedOperationException("You should not get there");
         }
@@ -421,8 +430,7 @@ public class Vizitor extends ProgrammingLanguageBaseVisitor<Pair<Type, List<Stri
                 relExpr.getValue().add("\t%tmp" + varCounter + " = icmp " + operationType + " i32 0, %tmp" + (varCounter - 1));
                 relExprNumber = varCounter++;
                 relExpr = new Pair<>(Type.BOOLEAN, relExpr.getValue());
-            }
-            else {
+            } else {
                 throw new IllegalArgumentException("Both values must be boolean");
             }
         }
@@ -465,8 +473,7 @@ public class Vizitor extends ProgrammingLanguageBaseVisitor<Pair<Type, List<Stri
                 addExpr.getValue().add("\t%tmp" + varCounter + " = icmp " + operationType + " i32 0, %tmp" + (varCounter - 1));
                 addExprNumber = varCounter++;
                 addExpr = new Pair<>(Type.BOOLEAN, addExpr.getValue());
-            }
-            else {
+            } else {
                 throw new IllegalArgumentException("Both values must have same type");
             }
         }
@@ -505,8 +512,7 @@ public class Vizitor extends ProgrammingLanguageBaseVisitor<Pair<Type, List<Stri
                 mulExpr.getValue().add("\t%help_tmp" + helpCounter++ + " = getelementptr inbounds [256 x i8]* %tmp" + nextMulExprNumber + ", i32 0, i32 0");
                 mulExpr.getValue().add("\tcall i8* @strcat(i8* %help_tmp" + (helpCounter - 3) + ", i8* %help_tmp" + (helpCounter - 1) + ") nounwind");
                 mulExprNumber = varCounter - 1;
-            }
-            else {
+            } else {
                 throw new IllegalArgumentException("Both values must have int or string type");
             }
         }
@@ -538,8 +544,7 @@ public class Vizitor extends ProgrammingLanguageBaseVisitor<Pair<Type, List<Stri
                 atom.getValue().addAll(nextAtom.getValue());
                 atom.getValue().add("\t%tmp" + varCounter + " = " + operationType + " i32 %tmp" + atomNumber + ", %tmp" + nextAtomNumber);
                 atomNumber = varCounter++;
-            }
-            else {
+            } else {
                 throw new IllegalArgumentException("Both values must have int type");
             }
         }
@@ -569,7 +574,7 @@ public class Vizitor extends ProgrammingLanguageBaseVisitor<Pair<Type, List<Stri
     private int countNewStrings(String str) {
         int result = 0;
         for (int i = 0; i < str.length() - 2; ++i) {
-            if (str.substring(i, i + 3).equals("\\0A")){
+            if (str.substring(i, i + 3).equals("\\0A")) {
                 result += 1;
             }
         }
@@ -597,7 +602,7 @@ public class Vizitor extends ProgrammingLanguageBaseVisitor<Pair<Type, List<Stri
                 str = str.substring(0, 255);
             }
 
-            String constant = "@.str" + constCounter++  + " = private unnamed_addr constant [256 x i8] c\"" + str;
+            String constant = "@.str" + constCounter++ + " = private unnamed_addr constant [256 x i8] c\"" + str;
             int newStr = countNewStrings(str);
             for (int i = 0; i < 256 - str.length() + newStr * 2; ++i) {
                 constant += "\\00";
