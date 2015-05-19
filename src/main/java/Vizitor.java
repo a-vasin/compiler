@@ -8,9 +8,9 @@ import org.antlr.v4.runtime.tree.TerminalNode;
 
 import java.util.*;
 
-/**
- * Created by Rabo on 23.04.2015.
- */
+ /**
+  * @author Rabo
+  */
 public class Vizitor extends ProgrammingLanguageBaseVisitor<Pair<Type, List<String>>> {
 
     private int varCounter = 0;
@@ -53,6 +53,10 @@ public class Vizitor extends ProgrammingLanguageBaseVisitor<Pair<Type, List<Stri
         }
         code.add("declare i32 @scanf(i8*, ...) nounwind\n");
         code.add("declare i32 @printf(i8*, ...) nounwind\n");
+        code.add("declare i8* @strcpy(i8*, i8*) nounwind\n");
+        code.add("declare i32 @strlen(i8*) nounwind readonly\n");
+        code.add("declare i8* @strcat(i8*, i8*) nounwind\n");
+        code.add("declare i32 @strcmp(i8*, i8*) nounwind readonly\n");
         code.add("declare void @llvm.memcpy.p0i8.p0i8.i32(i8* nocapture, i8* nocapture, i32, i32, i1) nounwind\n");
         code.addAll(0, constants);
         return new Pair<>(null, code);
@@ -410,8 +414,13 @@ public class Vizitor extends ProgrammingLanguageBaseVisitor<Pair<Type, List<Stri
                 relExprNumber = varCounter++;
                 relExpr = new Pair<>(Type.BOOLEAN, relExpr.getValue());
             } else if (relExpr.getKey() == Type.STRING && nextRelExpr.getKey() == Type.STRING) {
-                //TODO Add comprasion for strings
-                throw new UnsupportedOperationException();
+                relExpr.getValue().addAll(nextRelExpr.getValue());
+                relExpr.getValue().add("\t%help_tmp" + helpCounter++ + " = getelementptr inbounds [256 x i8]* %tmp" + (varCounter - 1) + ", i32 0, i32 0");
+                relExpr.getValue().add("\t%help_tmp" + helpCounter++ + " = getelementptr inbounds [256 x i8]* %tmp" + relExprNumber + ", i32 0, i32 0");
+                relExpr.getValue().add("\t%tmp" + varCounter++ + " = call i32 @strcmp(i8* %help_tmp" + (helpCounter - 2) + ", i8* %help_tmp" + (helpCounter - 1) + ") nounwind readonly");
+                relExpr.getValue().add("\t%tmp" + varCounter + " = icmp " + operationType + " i32 0, %tmp" + (varCounter - 1));
+                relExprNumber = varCounter++;
+                relExpr = new Pair<>(Type.BOOLEAN, relExpr.getValue());
             }
             else {
                 throw new IllegalArgumentException("Both values must be boolean");
@@ -449,8 +458,13 @@ public class Vizitor extends ProgrammingLanguageBaseVisitor<Pair<Type, List<Stri
                 addExprNumber = varCounter++;
                 addExpr = new Pair<>(Type.BOOLEAN, addExpr.getValue());
             } else if (addExpr.getKey() == Type.STRING && nextAddExpr.getKey() == Type.STRING) {
-                //TODO Add comprasion for strings
-                throw new UnsupportedOperationException();
+                addExpr.getValue().addAll(nextAddExpr.getValue());
+                addExpr.getValue().add("\t%help_tmp" + helpCounter++ + " = getelementptr inbounds [256 x i8]* %tmp" + (varCounter - 1) + ", i32 0, i32 0");
+                addExpr.getValue().add("\t%help_tmp" + helpCounter++ + " = getelementptr inbounds [256 x i8]* %tmp" + addExprNumber + ", i32 0, i32 0");
+                addExpr.getValue().add("\t%tmp" + varCounter++ + " = call i32 @strcmp(i8* %help_tmp" + (helpCounter - 2) + ", i8* %help_tmp" + (helpCounter - 1) + ") nounwind readonly");
+                addExpr.getValue().add("\t%tmp" + varCounter + " = icmp " + operationType + " i32 0, %tmp" + (varCounter - 1));
+                addExprNumber = varCounter++;
+                addExpr = new Pair<>(Type.BOOLEAN, addExpr.getValue());
             }
             else {
                 throw new IllegalArgumentException("Both values must have same type");
@@ -483,8 +497,14 @@ public class Vizitor extends ProgrammingLanguageBaseVisitor<Pair<Type, List<Stri
                 mulExpr.getValue().add("\t%tmp" + varCounter + " = " + operationType + " i32 %tmp" + mulExprNumber + ", %tmp" + nextMulExprNumber);
                 mulExprNumber = varCounter++;
             } else if (mulExpr.getKey() == Type.STRING && nextMulExpr.getKey() == Type.STRING) {
-                //TODO Add concatenation for strings
-                throw new UnsupportedOperationException();
+                mulExpr.getValue().addAll(nextMulExpr.getValue());
+                mulExpr.getValue().add("\t%tmp" + varCounter++ + " = alloca [256 x i8]");
+                mulExpr.getValue().add("\t%help_tmp" + helpCounter++ + " = getelementptr inbounds [256 x i8]* %tmp" + (varCounter - 1) + ", i32 0, i32 0");
+                mulExpr.getValue().add("\t%help_tmp" + helpCounter++ + " = getelementptr inbounds [256 x i8]* %tmp" + mulExprNumber + ", i32 0, i32 0");
+                mulExpr.getValue().add("\tcall i8* @strcpy(i8* %help_tmp" + (helpCounter - 2) + ", i8* %help_tmp" + (helpCounter - 1) + ") nounwind");
+                mulExpr.getValue().add("\t%help_tmp" + helpCounter++ + " = getelementptr inbounds [256 x i8]* %tmp" + nextMulExprNumber + ", i32 0, i32 0");
+                mulExpr.getValue().add("\tcall i8* @strcat(i8* %help_tmp" + (helpCounter - 3) + ", i8* %help_tmp" + (helpCounter - 1) + ") nounwind");
+                mulExprNumber = varCounter - 1;
             }
             else {
                 throw new IllegalArgumentException("Both values must have int or string type");
@@ -611,11 +631,27 @@ public class Vizitor extends ProgrammingLanguageBaseVisitor<Pair<Type, List<Stri
         List<String> code = expr.getValue();
         switch (expr.getKey()) {
             case INT:
+                if (variables.get(id) != Type.INT) {
+                    throw new IllegalArgumentException("Can't assign integer to variable of type " + variables.get(id).toString());
+                }
                 code.add("\tstore i32 %tmp" + (varCounter - 1) + ", i32* %var_" + id + ", align 4");
                 break;
             case BOOLEAN:
+                if (variables.get(id) != Type.BOOLEAN) {
+                    throw new IllegalArgumentException("Can't assign boolean to variable of type " + variables.get(id).toString());
+                }
                 code.add("\tstore i1 %tmp" + (varCounter - 1) + ", i1* %var_" + id + ", align 4");
                 break;
+            case STRING:
+                if (variables.get(id) != Type.STRING) {
+                    throw new IllegalArgumentException("Can't assign string to variable of type " + variables.get(id).toString());
+                }
+                code.add("\t%help_tmp" + helpCounter++ + " = getelementptr inbounds [256 x i8]* %var_" + id + ", i32 0, i32 0");
+                code.add("\t%help_tmp" + helpCounter++ + " = getelementptr inbounds [256 x i8]* %tmp" + (varCounter - 1) + ", i32 0, i32 0");
+                code.add("\tcall i8* @strcpy(i8* %help_tmp" + (helpCounter - 2) + ", i8* %help_tmp" + (helpCounter - 1) + ") nounwind");
+                break;
+            default:
+                throw new IllegalArgumentException("Expression of type void can't be assigned to anything");
         }
         return new Pair<>(Type.VOID, code);
     }
