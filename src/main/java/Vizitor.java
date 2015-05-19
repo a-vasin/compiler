@@ -576,9 +576,9 @@ public class Vizitor extends ProgrammingLanguageBaseVisitor<Pair<Type, List<Stri
         return result;
     }
 
-    //TODO add index? lookup
     public Pair<Type, List<String>> visitLookup(@NotNull ProgrammingLanguageParser.LookupContext ctx) {
         List<String> code = new LinkedList<>();
+        Pair<Type, List<String>> result;
         if (ctx.Id() != null) {
             String id = ctx.Id().getText();
             if (!variables.containsKey(id)) {
@@ -589,7 +589,7 @@ public class Vizitor extends ProgrammingLanguageBaseVisitor<Pair<Type, List<Stri
                 code.add("\t%tmp" + varCounter++ + " = alloca [256 x i8]");
                 code.add("\tstore [256 x i8] %tmp" + (varCounter - 2) + ", [256 x i8]* %tmp" + (varCounter - 1));
             }
-            return new Pair<>(variables.get(id), code);
+            result = new Pair<>(variables.get(id), code);
         } else if (ctx.String() != null) {
             String str = ctx.String().getText();
             str = str.substring(1, str.length() - 1);
@@ -607,14 +607,33 @@ public class Vizitor extends ProgrammingLanguageBaseVisitor<Pair<Type, List<Stri
             code.add("\t%tmp" + varCounter++ + " = alloca [256 x i8]");
             code.add("\t%help_tmp" + helpCounter++ + " = bitcast [256 x i8]* %tmp" + (varCounter - 1) + " to i8*");
             code.add("\tcall void @llvm.memcpy.p0i8.p0i8.i32(i8* %help_tmp" + (helpCounter - 1) + ", i8* getelementptr inbounds ([256 x i8]* @.str" + (constCounter - 1) + ", i32 0, i32 0), i32 256, i32 1, i1 false)");
-            return new Pair<>(Type.STRING, code);
+            result = new Pair<>(Type.STRING, code);
         } else if (ctx.expression() != null) {
-            return visitExpression(ctx.expression());
+            result = visitExpression(ctx.expression());
         } else if (ctx.functionCall() != null) {
-            return visitFunctionCall(ctx.functionCall());
+            result = visitFunctionCall(ctx.functionCall());
         } else {
             throw new UnsupportedOperationException();
         }
+        if (ctx.index() != null) {
+            if (result.getKey() != Type.STRING) {
+                throw new IllegalArgumentException("Can not use index with " + result.getKey().toString() + ", only suitable for string type");
+            }
+            int stringNumber = varCounter - 1;
+            Pair<Type, List<String>> expr = visitExpression(ctx.index().expression());
+            if (expr.getKey() != Type.INT) {
+                throw new IllegalArgumentException("Index must be integer");
+            }
+            result.getValue().addAll(expr.getValue());
+            result.getValue().add("\t%tmp" + varCounter++ + " = alloca [256 x i8]");
+            result.getValue().add("\t%help_tmp" + helpCounter++ + " = getelementptr inbounds [256 x i8]* %tmp" + stringNumber + ", i32 0, i32 %tmp" + (varCounter - 2));
+            result.getValue().add("\t%help_tmp" + helpCounter++ + " = load i8* %help_tmp" + (helpCounter - 2));
+            result.getValue().add("\t%help_tmp" + helpCounter++ + " = getelementptr inbounds [256 x i8]* %tmp" + (varCounter - 1) + ", i32 0, i32 0");
+            result.getValue().add("\tstore i8 %help_tmp" + (helpCounter - 2) + ", i8* %help_tmp" + (helpCounter - 1) + ", align 1");
+            result.getValue().add("\t%help_tmp" + helpCounter++ + " = getelementptr inbounds [256 x i8]* %tmp" + (varCounter - 1) + ", i32 0, i32 1");
+            result.getValue().add("\tstore i8 0, i8* %help_tmp" + (helpCounter - 1) + ", align 1");
+        }
+        return result;
     }
 
     public Pair<Type, List<String>> visitIndex(@NotNull ProgrammingLanguageParser.IndexContext ctx) {
