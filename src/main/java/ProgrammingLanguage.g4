@@ -35,11 +35,11 @@ statement
 	| assignment ';'
     | functionCall ';'
     | declarationId ';'
-    | unionStatement ';'
+    | unionStatement
 	;
     
 unionStatement
-    : Union '{' declarationId+ '}'
+    : Union '{' (declarationId ';')+ '}'
     ;
 	
 selectionStatement

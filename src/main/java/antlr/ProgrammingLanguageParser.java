@@ -553,7 +553,7 @@ public class ProgrammingLanguageParser extends Parser {
 		StatementContext _localctx = new StatementContext(_ctx, getState());
 		enterRule(_localctx, 12, RULE_statement);
 		try {
-			setState(120);
+			setState(118);
 			switch ( getInterpreter().adaptivePredict(_input,6,_ctx) ) {
 			case 1:
 				enterOuterAlt(_localctx, 1);
@@ -615,8 +615,6 @@ public class ProgrammingLanguageParser extends Parser {
 				{
 				setState(117); 
 				unionStatement();
-				setState(118); 
-				match(SColon);
 				}
 				break;
 			}
@@ -666,9 +664,9 @@ public class ProgrammingLanguageParser extends Parser {
 		try {
 			enterOuterAlt(_localctx, 1);
 			{
-			setState(122); 
+			setState(120); 
 			match(Union);
-			setState(123); 
+			setState(121); 
 			match(OBrace);
 			setState(125); 
 			_errHandler.sync(this);
@@ -676,8 +674,10 @@ public class ProgrammingLanguageParser extends Parser {
 			do {
 				{
 				{
-				setState(124); 
+				setState(122); 
 				declarationId();
+				setState(123); 
+				match(SColon);
 				}
 				}
 				setState(127); 
@@ -1932,7 +1932,7 @@ public class ProgrammingLanguageParser extends Parser {
 		"\n\3\3\3\3\3\3\3\3\4\3\4\3\4\3\4\3\4\3\4\7\4L\n\4\f\4\16\4O\13\4\3\5\3"+
 		"\5\3\6\3\6\7\6U\n\6\f\6\16\6X\13\6\3\6\3\6\3\6\3\6\5\6^\n\6\3\6\3\6\3"+
 		"\7\3\7\7\7d\n\7\f\7\16\7g\13\7\3\7\3\7\3\b\3\b\3\b\3\b\3\b\3\b\3\b\3\b"+
-		"\3\b\3\b\3\b\3\b\3\b\3\b\3\b\3\b\5\b{\n\b\3\t\3\t\3\t\6\t\u0080\n\t\r"+
+		"\3\b\3\b\3\b\3\b\3\b\3\b\5\by\n\b\3\t\3\t\3\t\3\t\3\t\6\t\u0080\n\t\r"+
 		"\t\16\t\u0081\3\t\3\t\3\n\3\n\3\n\3\n\3\n\3\n\3\n\3\n\3\n\3\n\3\n\3\n"+
 		"\3\n\3\n\3\n\3\n\3\n\3\n\3\n\3\n\7\n\u009a\n\n\f\n\16\n\u009d\13\n\3\n"+
 		"\3\n\5\n\u00a1\n\n\3\13\3\13\3\13\3\13\3\13\3\f\3\f\3\f\3\f\5\f\u00ac"+
@@ -1950,7 +1950,7 @@ public class ProgrammingLanguageParser extends Parser {
 		"\f\32\16\32\u012a\13\32\3\32\2\2\33\2\4\6\b\n\f\16\20\22\24\26\30\32\34"+
 		"\36 \"$&(*,.\60\62\2\7\3\2\17\22\3\2\25\26\4\2\27\30\33\34\3\2\35\36\3"+
 		"\2\37!\u0139\2\67\3\2\2\2\4<\3\2\2\2\6E\3\2\2\2\bP\3\2\2\2\nR\3\2\2\2"+
-		"\fa\3\2\2\2\16z\3\2\2\2\20|\3\2\2\2\22\u00a0\3\2\2\2\24\u00a2\3\2\2\2"+
+		"\fa\3\2\2\2\16x\3\2\2\2\20z\3\2\2\2\22\u00a0\3\2\2\2\24\u00a2\3\2\2\2"+
 		"\26\u00ab\3\2\2\2\30\u00ad\3\2\2\2\32\u00c7\3\2\2\2\34\u00c9\3\2\2\2\36"+
 		"\u00d1\3\2\2\2 \u00d9\3\2\2\2\"\u00e1\3\2\2\2$\u00e9\3\2\2\2&\u00f1\3"+
 		"\2\2\2(\u00f9\3\2\2\2*\u0104\3\2\2\2,\u0118\3\2\2\2.\u011a\3\2\2\2\60"+
@@ -1963,11 +1963,11 @@ public class ProgrammingLanguageParser extends Parser {
 		"X\3\2\2\2VT\3\2\2\2VW\3\2\2\2W]\3\2\2\2XV\3\2\2\2YZ\7\b\2\2Z[\5\36\20"+
 		"\2[\\\7(\2\2\\^\3\2\2\2]Y\3\2\2\2]^\3\2\2\2^_\3\2\2\2_`\7#\2\2`\13\3\2"+
 		"\2\2ae\7\"\2\2bd\5\16\b\2cb\3\2\2\2dg\3\2\2\2ec\3\2\2\2ef\3\2\2\2fh\3"+
-		"\2\2\2ge\3\2\2\2hi\7#\2\2i\r\3\2\2\2j{\5\f\7\2k{\5\22\n\2l{\5\30\r\2m"+
-		"{\5\26\f\2no\5\60\31\2op\7(\2\2p{\3\2\2\2qr\5\32\16\2rs\7(\2\2s{\3\2\2"+
-		"\2tu\5\62\32\2uv\7(\2\2v{\3\2\2\2wx\5\20\t\2xy\7(\2\2y{\3\2\2\2zj\3\2"+
-		"\2\2zk\3\2\2\2zl\3\2\2\2zm\3\2\2\2zn\3\2\2\2zq\3\2\2\2zt\3\2\2\2zw\3\2"+
-		"\2\2{\17\3\2\2\2|}\7\13\2\2}\177\7\"\2\2~\u0080\5\62\32\2\177~\3\2\2\2"+
+		"\2\2\2ge\3\2\2\2hi\7#\2\2i\r\3\2\2\2jy\5\f\7\2ky\5\22\n\2ly\5\30\r\2m"+
+		"y\5\26\f\2no\5\60\31\2op\7(\2\2py\3\2\2\2qr\5\32\16\2rs\7(\2\2sy\3\2\2"+
+		"\2tu\5\62\32\2uv\7(\2\2vy\3\2\2\2wy\5\20\t\2xj\3\2\2\2xk\3\2\2\2xl\3\2"+
+		"\2\2xm\3\2\2\2xn\3\2\2\2xq\3\2\2\2xt\3\2\2\2xw\3\2\2\2y\17\3\2\2\2z{\7"+
+		"\13\2\2{\177\7\"\2\2|}\5\62\32\2}~\7(\2\2~\u0080\3\2\2\2\177|\3\2\2\2"+
 		"\u0080\u0081\3\2\2\2\u0081\177\3\2\2\2\u0081\u0082\3\2\2\2\u0082\u0083"+
 		"\3\2\2\2\u0083\u0084\7#\2\2\u0084\21\3\2\2\2\u0085\u0086\7\t\2\2\u0086"+
 		"\u0087\7&\2\2\u0087\u0088\5\36\20\2\u0088\u0089\7\'\2\2\u0089\u008a\5"+
@@ -2023,7 +2023,7 @@ public class ProgrammingLanguageParser extends Parser {
 		"\36\20\2\u0121\61\3\2\2\2\u0122\u0123\5\b\5\2\u0123\u0128\7\60\2\2\u0124"+
 		"\u0125\7*\2\2\u0125\u0127\7\60\2\2\u0126\u0124\3\2\2\2\u0127\u012a\3\2"+
 		"\2\2\u0128\u0126\3\2\2\2\u0128\u0129\3\2\2\2\u0129\63\3\2\2\2\u012a\u0128"+
-		"\3\2\2\2\35\67@MV]ez\u0081\u009b\u00a0\u00ab\u00b6\u00c7\u00ce\u00d6\u00de"+
+		"\3\2\2\2\35\67@MV]ex\u0081\u009b\u00a0\u00ab\u00b6\u00c7\u00ce\u00d6\u00de"+
 		"\u00e6\u00ee\u00f6\u00fe\u0104\u0108\u010e\u0112\u0116\u0118\u0128";
 	public static final ATN _ATN =
 		new ATNDeserializer().deserialize(_serializedATN.toCharArray());

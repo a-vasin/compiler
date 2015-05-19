@@ -19,6 +19,7 @@ public class Vizitor extends ProgrammingLanguageBaseVisitor<Pair<Type, List<Stri
     private int constCounter = 0;
     private Map<String, Type> variables = new HashMap<>();
     private Map<String, Integer> nameCounter = new HashMap<>();
+    private Map<String, List<String>> unionMap = new HashMap<>();
     private Map<String, Pair<Type, List<Type>>> functions = new HashMap<>();
     private Stack<Integer> endLabels = new Stack<>();
     private Stack<Integer> startWhileLabels = new Stack<>();
@@ -154,12 +155,17 @@ public class Vizitor extends ProgrammingLanguageBaseVisitor<Pair<Type, List<Stri
 
     public Pair<Type, List<String>> visitCompoundStatement(@NotNull ProgrammingLanguageParser.CompoundStatementContext ctx) {
         Map<String, Type> context = new HashMap<>();
+        Map<String, List<String>> unionContext = new HashMap<>();
         context.putAll(variables);
+        unionContext.putAll(unionMap);
+
         List<String> code = new ArrayList<>();
         for (ProgrammingLanguageParser.StatementContext statement : ctx.statement()) {
             code.addAll(visitStatement(statement).getValue());
         }
+
         variables = context;
+        unionMap = unionContext;
         return new Pair<>(Type.VOID, code);
     }
 
@@ -185,8 +191,24 @@ public class Vizitor extends ProgrammingLanguageBaseVisitor<Pair<Type, List<Stri
     }
 
     public Pair<Type, List<String>> visitUnionStatement(@NotNull ProgrammingLanguageParser.UnionStatementContext ctx) {
-
-        return null;
+        List<String> unionId = new ArrayList<>();
+        List<String> code = new ArrayList<>();
+        for (ProgrammingLanguageParser.DeclarationIdContext declarationIdContext : ctx.declarationId()) {
+            Type type = visitTypeSpecifier(declarationIdContext.typeSpecifier()).getKey();
+            if (type == Type.STRING) {
+                throw new IllegalArgumentException("Strings are not allowed in union");
+            }
+            code.addAll(visitDeclarationId(declarationIdContext).getValue());
+            for (TerminalNode terminalNode : declarationIdContext.Id()) {
+                unionId.add(terminalNode.getText());
+            }
+        }
+        for (ProgrammingLanguageParser.DeclarationIdContext declarationIdContext : ctx.declarationId()) {
+            for (TerminalNode terminalNode : declarationIdContext.Id()) {
+                unionMap.put(terminalNode.getText(), unionId);
+            }
+        }
+        return new Pair<>(Type.VOID, code);
     }
 
     public Pair<Type, List<String>> visitSelectionStatement(@NotNull ProgrammingLanguageParser.SelectionStatementContext ctx) {
@@ -700,8 +722,42 @@ public class Vizitor extends ProgrammingLanguageBaseVisitor<Pair<Type, List<Stri
         return expr;
     }
 
+    public Pair<Type, List<String>> visitUnionAssignment(@NotNull ProgrammingLanguageParser.AssignmentContext ctx) {
+        List<String> ids = unionMap.get(ctx.Id().getText());
+        Pair<Type, List<String>> expr = visitExpression(ctx.expression());
+        List<String> code = new ArrayList<>();
+        code.addAll(expr.getValue());
+        int exprNum = varCounter - 1;
+        for (String id : ids) {
+            switch (expr.getKey()) {
+                case INT:
+                    if (variables.get(id) == Type.BOOLEAN) {
+                        code.add("\t%tmp" + varCounter++ + " = trunc i32 %tmp" + exprNum + " to i1");
+                        code.add("\tstore i1 %tmp" + (varCounter - 1) + ", i1* %var_" + id + nameCounter.get(id) + ", align 4");
+                    } else {
+                        code.add("\tstore i32 %tmp" + exprNum + ", i32* %var_" + id + nameCounter.get(id) + ", align 4");
+                    }
+                    break;
+                case BOOLEAN:
+                    if (variables.get(id) == Type.INT) {
+                        code.add("\t%tmp" + varCounter++ + " = zext i1 %tmp" + exprNum + " to i32");
+                        code.add("\tstore i32 %tmp" + (varCounter - 1) + ", i32* %var_" + id + nameCounter.get(id) + ", align 4");
+                    } else {
+                        code.add("\tstore i1 %tmp" + exprNum + ", i1* %var_" + id + nameCounter.get(id) + ", align 4");
+                    }
+                    break;
+                default:
+                    throw new IllegalArgumentException("Expressions of type void or string can't be assigned to variable in union");
+            }
+        }
+        return new Pair<>(Type.VOID, code);
+    }
+
     public Pair<Type, List<String>> visitAssignment(@NotNull ProgrammingLanguageParser.AssignmentContext ctx) {
         String id = ctx.Id().getText();
+        if (unionMap.containsKey(id)) {
+            return visitUnionAssignment(ctx);
+        }
         Pair<Type, List<String>> expr = visitExpression(ctx.expression());
         List<String> code = expr.getValue();
         switch (expr.getKey()) {
@@ -733,6 +789,9 @@ public class Vizitor extends ProgrammingLanguageBaseVisitor<Pair<Type, List<Stri
 
     public Pair<Type, List<String>> visitDeclarationId(@NotNull ProgrammingLanguageParser.DeclarationIdContext ctx) {
         Type varType = visitTypeSpecifier(ctx.typeSpecifier()).getKey();
+        if (varType == Type.VOID) {
+            throw new IllegalArgumentException("Variables of type void can't be created");
+        }
         List<String> code = new ArrayList<>();
         for (TerminalNode terminalNode : ctx.Id()) {
             if (variables.containsKey(terminalNode.getText())) {
