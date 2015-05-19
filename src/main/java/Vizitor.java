@@ -69,9 +69,11 @@ public class Vizitor extends ProgrammingLanguageBaseVisitor<Pair<Type, List<Stri
         Type functionType = visitTypeSpecifier(ctx.typeSpecifier()).getKey();
         String functionName = ctx.Id().getText();
         if (!functionName.equals("main")) {
-            functionName = "var_" + functionName;
+            functionName = "func_" + functionName;
         }
-        String functionHeader = "define " + getLLVMType(functionType) + " @" + functionName + "(";
+        String functionHeader = "define " + getLLVMType(functionType)
+                + (functionType == Type.STRING ? "*" : "")
+                + " @" + functionName + "(";
 
         Map<String, Type> funcArgs = new HashMap<>();
         List<Type> argTypes = new LinkedList<>();
@@ -81,12 +83,12 @@ public class Vizitor extends ProgrammingLanguageBaseVisitor<Pair<Type, List<Stri
                 String argName = ctx.idList().Id(i).getText();
                 funcArgs.put(argName, argType);
                 argTypes.add(argType);
-                functionHeader += getLLVMType(argType) + " %var_" + argName + (i == ctx.idList().typeSpecifier().size() - 1 ? "" : ", ");
+                functionHeader += getLLVMType(argType) + "* %var_" + argName + (i == ctx.idList().typeSpecifier().size() - 1 ? "" : ", ");
             }
         }
         functionHeader += ") {";
 
-        functions.put(functionName, new Pair<>(functionType, argTypes));
+        functions.put(ctx.Id().getText(), new Pair<>(functionType, argTypes));
         variables.putAll(funcArgs);
 
         Pair<Type, List<String>> body = visitFunctionBody(ctx.functionBody());
@@ -134,7 +136,9 @@ public class Vizitor extends ProgrammingLanguageBaseVisitor<Pair<Type, List<Stri
             Pair<Type, List<String>> returnStatement = visitExpression(ctx.expression());
             returnType = returnStatement.getKey();
             code.addAll(returnStatement.getValue());
-            code.add("\tret " + getLLVMType(returnType) + " %tmp" + (varCounter - 1));
+            code.add("\tret " + getLLVMType(returnType)
+                    + (returnType == Type.STRING ? "*" : "")
+                    + " %tmp" + (varCounter - 1));
         }
 
         return new Pair<>(returnType, code);
@@ -347,9 +351,46 @@ public class Vizitor extends ProgrammingLanguageBaseVisitor<Pair<Type, List<Stri
                 throw new IllegalArgumentException("Length function works with strings only");
             }
             code.addAll(expression.getValue());
-            code.add("%help_tmp" + helpCounter++ + " = getelementptr inbounds [256 x i8]* %tmp" + (varCounter - 1) + ", i32 0, i32 0");
-            code.add("%tmp" + varCounter++ + " = call i32 @strlen(i8* %help_tmp" + (helpCounter - 1) + ") nounwind readonly");
+            code.add("\t%help_tmp" + helpCounter++ + " = getelementptr inbounds [256 x i8]* %tmp" + (varCounter - 1) + ", i32 0, i32 0");
+            code.add("\t%tmp" + varCounter++ + " = call i32 @strlen(i8* %help_tmp" + (helpCounter - 1) + ") nounwind readonly");
             return new Pair<>(Type.INT, code);
+        } else if (ctx.Id() != null) {
+            String id = ctx.Id().getText();
+            if (!functions.containsKey(id)) {
+                throw new IllegalArgumentException("Call to undeclared function");
+            }
+            Pair<Type, List<Type>> functSignature = functions.get(id);
+            if (ctx.expressionList().expression().size() != functSignature.getValue().size()) {
+                throw new IllegalArgumentException("Number of arguments does not match with function declaration");
+            }
+            List<Integer> argsNum = new ArrayList<>();
+            Iterator<Type> typeIterator = functions.get(id).getValue().iterator();
+            for (ProgrammingLanguageParser.ExpressionContext expressionContext : ctx.expressionList().expression()) {
+                Type argType = typeIterator.next();
+                Pair<Type, List<String>> expr = visitExpression(expressionContext);
+                if (expr.getKey() != argType) {
+                    throw new IllegalArgumentException("Expected type " + argType.toString() + ", found " + expr.getKey() + " for " + argsNum.size() + " argument of call to " + id + " function");
+                }
+                code.addAll(expr.getValue());
+                if (argType != Type.STRING) {
+                    code.add("\t%tmp" + varCounter++ + " = alloca " + getLLVMType(expr.getKey()));
+                    code.add("\tstore " + getLLVMType(expr.getKey()) + " %tmp" + (varCounter - 2) + ", " + getLLVMType(expr.getKey()) + "* %tmp" + (varCounter - 1));
+                }
+                argsNum.add(varCounter - 1);
+            }
+            String call = "call " + getLLVMType(functSignature.getKey())
+                    + (functSignature.getKey() == Type.STRING ? "*" : "")
+                    + " @func_" + id + "(";
+            typeIterator = functions.get(id).getValue().iterator();
+            for (Integer i : argsNum) {
+                call += getLLVMType(typeIterator.next()) + "* %tmp" + i + (typeIterator.hasNext() ? ", " : "");
+            }
+            call += ")";
+            if (functSignature.getKey() != Type.VOID) {
+                call = "%tmp" + varCounter++ + " = " + call;
+            }
+            code.add("\t" + call);
+            return new Pair<>(functSignature.getKey(), code);
         } else {
             throw new UnsupportedOperationException("You should not get there");
         }
