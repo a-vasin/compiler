@@ -20,7 +20,7 @@ public class Vizitor extends ProgrammingLanguageBaseVisitor<Pair<Type, List<Stri
     private Map<String, Type> variables = new HashMap<>();
     private Map<String, Pair<Type, List<Type>>> functions = new HashMap<>();
     private Stack<Integer> endLabels = new Stack<>();
-    private Stack<Integer> endWhileLabels = new Stack<>();
+    private Stack<Integer> startWhileLabels = new Stack<>();
     private List<String> constants = new ArrayList<>();
 
     private String getLLVMType(Type type) {
@@ -248,10 +248,10 @@ public class Vizitor extends ProgrammingLanguageBaseVisitor<Pair<Type, List<Stri
             }
             code.add("\tbr label %Label" + endLabels.peek());
         } else if (ctx.Continue() != null) {
-            if (endWhileLabels.isEmpty()) {
+            if (startWhileLabels.isEmpty()) {
                 throw new IllegalArgumentException("Continue should be inside while");
             }
-            code.add("\tbr label %Label" + endWhileLabels.peek());
+            code.add("\tbr label %Label" + startWhileLabels.peek());
         } else {
             throw new UnsupportedOperationException("You should not get there");
         }
@@ -268,7 +268,7 @@ public class Vizitor extends ProgrammingLanguageBaseVisitor<Pair<Type, List<Stri
         int bodyLabel = labelCounter++;
         int endLabel = labelCounter++;
         endLabels.push(endLabel);
-        endWhileLabels.push(endLabel);
+        startWhileLabels.push(startLabel);
 
         code.add("\tbr label %Label" + startLabel);
         code.add("Label" + startLabel + ":");
@@ -280,7 +280,7 @@ public class Vizitor extends ProgrammingLanguageBaseVisitor<Pair<Type, List<Stri
         code.add("Label" + endLabel + ":");
 
         endLabels.pop();
-        endWhileLabels.pop();
+        startWhileLabels.pop();
         return new Pair<>(Type.VOID, code);
     }
 
