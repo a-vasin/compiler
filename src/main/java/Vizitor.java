@@ -18,6 +18,7 @@ public class Vizitor extends ProgrammingLanguageBaseVisitor<Pair<Type, List<Stri
     private int labelCounter = 0;
     private int constCounter = 0;
     private Map<String, Type> variables = new HashMap<>();
+    private Map<String, Integer> nameCounter = new HashMap<>();
     private Map<String, Pair<Type, List<Type>>> functions = new HashMap<>();
     private Stack<Integer> endLabels = new Stack<>();
     private Stack<Integer> startWhileLabels = new Stack<>();
@@ -64,6 +65,9 @@ public class Vizitor extends ProgrammingLanguageBaseVisitor<Pair<Type, List<Stri
 
     public Pair<Type, List<String>> visitFunctionDefinition(@NotNull ProgrammingLanguageParser.FunctionDefinitionContext ctx) {
         varCounter = 0;
+        helpCounter = 0;
+        nameCounter.clear();
+        variables.clear();
         List<String> code = new ArrayList<>();
 
         Type functionType = visitTypeSpecifier(ctx.typeSpecifier()).getKey();
@@ -81,9 +85,13 @@ public class Vizitor extends ProgrammingLanguageBaseVisitor<Pair<Type, List<Stri
             for (int i = 0; i < ctx.idList().typeSpecifier().size(); ++i) {
                 Type argType = visitTypeSpecifier(ctx.idList().typeSpecifier(i)).getKey();
                 String argName = ctx.idList().Id(i).getText();
-                funcArgs.put(argName, argType);
+                if (nameCounter.containsKey(argName)) {
+                    throw new IllegalArgumentException("Argument name must be unique");
+                }
+                nameCounter.put(argName, 0);
+                funcArgs.put(argName + "0", argType);
                 argTypes.add(argType);
-                functionHeader += getLLVMType(argType) + "* %var_" + argName + (i == ctx.idList().typeSpecifier().size() - 1 ? "" : ", ");
+                functionHeader += getLLVMType(argType) + "* %var_" + argName + nameCounter.get(argName) + (i == ctx.idList().typeSpecifier().size() - 1 ? "" : ", ");
             }
         }
         functionHeader += ") {";
@@ -177,6 +185,7 @@ public class Vizitor extends ProgrammingLanguageBaseVisitor<Pair<Type, List<Stri
     }
 
     public Pair<Type, List<String>> visitUnionStatement(@NotNull ProgrammingLanguageParser.UnionStatementContext ctx) {
+
         return null;
     }
 
@@ -296,12 +305,13 @@ public class Vizitor extends ProgrammingLanguageBaseVisitor<Pair<Type, List<Stri
                 throw new IllegalArgumentException("Undefined variable");
             }
             Type type = variables.get(id);
+            id += nameCounter.get(id);
             switch (type) {
                 case INT:
-                    code.add("\tcall i32 (i8*, ...)* @scanf(i8* getelementptr inbounds ([3 x i8]* @.read_int, i32 0, i32 0), i32* %var_" + id + ") nounwind");
+                    code.add("\tcall i32 (i8*, ...)* @scanf(i8* getelementptr inbounds ([3 x i8]* @.read_int, i32 0, i32 0), i32* %var_" + id + nameCounter.get(id) + ") nounwind");
                     break;
                 case STRING:
-                    code.add("\t%ptr" + helpCounter++ + " = getelementptr inbounds [256 x i8]* %var_" + id + ", i32 0, i32 0");
+                    code.add("\t%ptr" + helpCounter++ + " = getelementptr inbounds [256 x i8]* %var_" + id + nameCounter.get(id) + ", i32 0, i32 0");
                     code.add("\tcall i32 (i8*, ...)* @scanf(i8* getelementptr inbounds ([6 x i8]* @.read_str, i32 0, i32 0), i8* %ptr" + (helpCounter - 1) + ") nounwind");
                     break;
                 case BOOLEAN:
@@ -309,7 +319,7 @@ public class Vizitor extends ProgrammingLanguageBaseVisitor<Pair<Type, List<Stri
                     code.add("\tcall i32 (i8*, ...)* @scanf(i8* getelementptr inbounds ([3 x i8]* @.read_int, i32 0, i32 0), i32* %bool_tmp" + (varCounter - 1) + ") nounwind");
                     code.add("\t%tmp" + varCounter++ + " = load i32* %bool_tmp" + (varCounter - 2));
                     code.add("\t%tmp" + varCounter++ + " = icmp ne i32 %tmp" + (varCounter - 2) + ", 0");
-                    code.add("\tstore i1 %tmp" + (varCounter - 1) + ", i1* %var_" + id);
+                    code.add("\tstore i1 %tmp" + (varCounter - 1) + ", i1* %var_" + id + nameCounter.get(id));
                     break;
                 default:
                     throw new UnsupportedOperationException("You should not be there");
@@ -630,7 +640,7 @@ public class Vizitor extends ProgrammingLanguageBaseVisitor<Pair<Type, List<Stri
             if (!variables.containsKey(id)) {
                 throw new IllegalArgumentException("Undeclared variable: " + id);
             }
-            code.add("\t%tmp" + varCounter++ + " = load " + getLLVMType(variables.get(id)) + "* %var_" + id);
+            code.add("\t%tmp" + varCounter++ + " = load " + getLLVMType(variables.get(id)) + "* %var_" + id + nameCounter.get(id));
             if (variables.get(id) == Type.STRING) {
                 code.add("\t%tmp" + varCounter++ + " = alloca [256 x i8]");
                 code.add("\tstore [256 x i8] %tmp" + (varCounter - 2) + ", [256 x i8]* %tmp" + (varCounter - 1));
@@ -699,19 +709,19 @@ public class Vizitor extends ProgrammingLanguageBaseVisitor<Pair<Type, List<Stri
                 if (variables.get(id) != Type.INT) {
                     throw new IllegalArgumentException("Can't assign integer to variable of type " + variables.get(id).toString());
                 }
-                code.add("\tstore i32 %tmp" + (varCounter - 1) + ", i32* %var_" + id + ", align 4");
+                code.add("\tstore i32 %tmp" + (varCounter - 1) + ", i32* %var_" + id + nameCounter.get(id) +  ", align 4");
                 break;
             case BOOLEAN:
                 if (variables.get(id) != Type.BOOLEAN) {
                     throw new IllegalArgumentException("Can't assign boolean to variable of type " + variables.get(id).toString());
                 }
-                code.add("\tstore i1 %tmp" + (varCounter - 1) + ", i1* %var_" + id + ", align 4");
+                code.add("\tstore i1 %tmp" + (varCounter - 1) + ", i1* %var_" + id + nameCounter.get(id) + ", align 4");
                 break;
             case STRING:
                 if (variables.get(id) != Type.STRING) {
                     throw new IllegalArgumentException("Can't assign string to variable of type " + variables.get(id).toString());
                 }
-                code.add("\t%help_tmp" + helpCounter++ + " = getelementptr inbounds [256 x i8]* %var_" + id + ", i32 0, i32 0");
+                code.add("\t%help_tmp" + helpCounter++ + " = getelementptr inbounds [256 x i8]* %var_" + id + nameCounter.get(id) + ", i32 0, i32 0");
                 code.add("\t%help_tmp" + helpCounter++ + " = getelementptr inbounds [256 x i8]* %tmp" + (varCounter - 1) + ", i32 0, i32 0");
                 code.add("\tcall i8* @strcpy(i8* %help_tmp" + (helpCounter - 2) + ", i8* %help_tmp" + (helpCounter - 1) + ") nounwind");
                 break;
@@ -725,8 +735,16 @@ public class Vizitor extends ProgrammingLanguageBaseVisitor<Pair<Type, List<Stri
         Type varType = visitTypeSpecifier(ctx.typeSpecifier()).getKey();
         List<String> code = new ArrayList<>();
         for (TerminalNode terminalNode : ctx.Id()) {
+            if (variables.containsKey(terminalNode.getText())) {
+                throw new IllegalArgumentException("Double declaration of variable " + terminalNode.getText());
+            }
             variables.put(terminalNode.getText(), varType);
-            code.add("\t%var_" + terminalNode.getText() + " = alloca " + getLLVMType(varType));
+            if (!nameCounter.containsKey(terminalNode.getText())) {
+                nameCounter.put(terminalNode.getText(), 0);
+            } else {
+                nameCounter.put(terminalNode.getText(), nameCounter.get(terminalNode.getText()) + 1);
+            }
+            code.add("\t%var_" + terminalNode.getText() + nameCounter.get(terminalNode.getText()) + " = alloca " + getLLVMType(varType));
         }
         return new Pair<>(Type.VOID, code);
     }
