@@ -50,6 +50,23 @@ public class Vizitor extends ProgrammingLanguageBaseVisitor<Pair<Pair<Type, List
         code.add("@.false_str = private unnamed_addr constant [6 x i8] c\"false\\00\", align 1");
         code.add("@.true_str = private unnamed_addr constant [5 x i8] c\"true\\00\", align 1");
         code.add("\n");
+
+        for (ProgrammingLanguageParser.FunctionDefinitionContext fdc : ctx.functionDefinition()) {
+            String name = fdc.Id().getText();
+            if (functions.containsKey(name)) {
+                throw new IllegalArgumentException("Double declaration of function: " + name);
+            }
+            Type functionType = visitTypeSpecifier(fdc.typeSpecifier()).getKey().getKey();
+            List<Type> argTypes = new LinkedList<>();
+            if (fdc.idList() != null) {
+                for (int i = 0; i < fdc.idList().typeSpecifier().size(); ++i) {
+                    Type argType = visitTypeSpecifier(fdc.idList().typeSpecifier(i)).getKey().getKey();
+                    argTypes.add(argType);
+                }
+            }
+            functions.put(name, new Pair<>(functionType, argTypes));
+        }
+
         for (ProgrammingLanguageParser.FunctionDefinitionContext fdc : ctx.functionDefinition()) {
             code.addAll(visitFunctionDefinition(fdc).getKey().getValue());
             code.add("\n");
@@ -82,7 +99,6 @@ public class Vizitor extends ProgrammingLanguageBaseVisitor<Pair<Pair<Type, List
                 + " @" + functionName + "(";
 
         Map<String, Type> funcArgs = new HashMap<>();
-        List<Type> argTypes = new LinkedList<>();
         if (ctx.idList() != null) {
             for (int i = 0; i < ctx.idList().typeSpecifier().size(); ++i) {
                 Type argType = visitTypeSpecifier(ctx.idList().typeSpecifier(i)).getKey().getKey();
@@ -91,14 +107,12 @@ public class Vizitor extends ProgrammingLanguageBaseVisitor<Pair<Pair<Type, List
                     throw new IllegalArgumentException("Argument name must be unique");
                 }
                 nameCounter.put(argName, 0);
-                funcArgs.put(argName + "0", argType);
-                argTypes.add(argType);
+                funcArgs.put(argName, argType);
                 functionHeader += getLLVMType(argType) + "* %var_" + argName + nameCounter.get(argName) + (i == ctx.idList().typeSpecifier().size() - 1 ? "" : ", ");
             }
         }
         functionHeader += ") {";
 
-        functions.put(ctx.Id().getText(), new Pair<>(functionType, argTypes));
         variables.putAll(funcArgs);
 
         Pair<Pair<Type, List<String>>, Node> body = visitFunctionBody(ctx.functionBody());
@@ -274,10 +288,10 @@ public class Vizitor extends ProgrammingLanguageBaseVisitor<Pair<Pair<Type, List
             } else {
                 code.addAll(expression.getKey().getValue());
             }
-            int labelEnd = labelCounter++;
-            endLabels.push(labelEnd);
             int firstLabel = labelCounter;
             labelCounter += ctx.caseStatement().size();
+            int labelEnd = labelCounter++;
+            endLabels.push(labelEnd);
             String switchString = "\tswitch i32 %tmp" + (varCounter - 1) + ", label %Label" + labelEnd + " [";
             for (int i = 0; i < ctx.caseStatement().size(); ++i) {
                 ProgrammingLanguageParser.CaseStatementContext caseStatementContext = ctx.caseStatement(i);
@@ -298,7 +312,7 @@ public class Vizitor extends ProgrammingLanguageBaseVisitor<Pair<Pair<Type, List
             for (int i = 0; i < ctx.caseStatement().size(); ++i) {
                 code.add("Label" + (firstLabel + i) + ":");
                 code.addAll(visitCompoundStatement(ctx.caseStatement(i).compoundStatement()).getKey().getValue());
-                code.add("\tbr label %Label" + labelEnd);
+                code.add("\tbr label %Label" + (firstLabel + i + 1));
             }
 
             code.add("Label" + labelEnd + ":");
