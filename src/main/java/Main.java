@@ -15,7 +15,7 @@ public class Main {
         ProgrammingLanguageParser parser = new ProgrammingLanguageParser(tokens);
 
         ParseTree tree = parser.parse();
-        List<String> code = new Vizitor().visit(tree).getValue();
+        List<String> code = new Vizitor().visit(tree).getKey().getValue();
         for (String line : code) {
             System.out.println(line);
         }

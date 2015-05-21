@@ -1,7 +1,7 @@
 import antlr.ProgrammingLanguageBaseVisitor;
 import antlr.ProgrammingLanguageParser;
 import javafx.util.Pair;
-import node.Type;
+import node.*;
 import org.antlr.v4.runtime.misc.NotNull;
 import org.antlr.v4.runtime.tree.ErrorNode;
 import org.antlr.v4.runtime.tree.RuleNode;
@@ -12,7 +12,7 @@ import java.util.*;
 /**
  * @author Rabo
  */
-public class Vizitor extends ProgrammingLanguageBaseVisitor<Pair<Type, List<String>>> {
+public class Vizitor extends ProgrammingLanguageBaseVisitor<Pair<Pair<Type, List<String>>, Node>> {
 
     private int varCounter = 0;
     private int helpCounter = 0;
@@ -41,7 +41,7 @@ public class Vizitor extends ProgrammingLanguageBaseVisitor<Pair<Type, List<Stri
         throw new IllegalArgumentException();
     }
 
-    public Pair<Type, List<String>> visitParse(@NotNull ProgrammingLanguageParser.ParseContext ctx) {
+    public Pair<Pair<Type, List<String>>, Node> visitParse(@NotNull ProgrammingLanguageParser.ParseContext ctx) {
         List<String> code = new LinkedList<>();
         code.add("\n@.read_int = private unnamed_addr constant [3 x i8] c\"%d\\00\", align 1");
         code.add("@.read_str = private unnamed_addr constant [6 x i8] c\"%255s\\00\", align 1");
@@ -51,7 +51,7 @@ public class Vizitor extends ProgrammingLanguageBaseVisitor<Pair<Type, List<Stri
         code.add("@.true_str = private unnamed_addr constant [5 x i8] c\"true\\00\", align 1");
         code.add("\n");
         for (ProgrammingLanguageParser.FunctionDefinitionContext fdc : ctx.functionDefinition()) {
-            code.addAll(visitFunctionDefinition(fdc).getValue());
+            code.addAll(visitFunctionDefinition(fdc).getKey().getValue());
             code.add("\n");
         }
         code.add("declare i32 @scanf(i8*, ...) nounwind\n");
@@ -62,17 +62,17 @@ public class Vizitor extends ProgrammingLanguageBaseVisitor<Pair<Type, List<Stri
         code.add("declare i32 @strcmp(i8*, i8*) nounwind readonly\n");
         code.add("declare void @llvm.memcpy.p0i8.p0i8.i32(i8* nocapture, i8* nocapture, i32, i32, i1) nounwind\n");
         code.addAll(0, constants);
-        return new Pair<>(null, code);
+        return new Pair<>(new Pair<>(null, code), null);
     }
 
-    public Pair<Type, List<String>> visitFunctionDefinition(@NotNull ProgrammingLanguageParser.FunctionDefinitionContext ctx) {
+    public Pair<Pair<Type, List<String>>, Node> visitFunctionDefinition(@NotNull ProgrammingLanguageParser.FunctionDefinitionContext ctx) {
         varCounter = 0;
         helpCounter = 0;
         nameCounter.clear();
         variables.clear();
         List<String> code = new ArrayList<>();
 
-        Type functionType = visitTypeSpecifier(ctx.typeSpecifier()).getKey();
+        Type functionType = visitTypeSpecifier(ctx.typeSpecifier()).getKey().getKey();
         String functionName = ctx.Id().getText();
         if (!functionName.equals("main")) {
             functionName = "func_" + functionName;
@@ -85,7 +85,7 @@ public class Vizitor extends ProgrammingLanguageBaseVisitor<Pair<Type, List<Stri
         List<Type> argTypes = new LinkedList<>();
         if (ctx.idList() != null) {
             for (int i = 0; i < ctx.idList().typeSpecifier().size(); ++i) {
-                Type argType = visitTypeSpecifier(ctx.idList().typeSpecifier(i)).getKey();
+                Type argType = visitTypeSpecifier(ctx.idList().typeSpecifier(i)).getKey().getKey();
                 String argName = ctx.idList().Id(i).getText();
                 if (nameCounter.containsKey(argName)) {
                     throw new IllegalArgumentException("Argument name must be unique");
@@ -101,60 +101,60 @@ public class Vizitor extends ProgrammingLanguageBaseVisitor<Pair<Type, List<Stri
         functions.put(ctx.Id().getText(), new Pair<>(functionType, argTypes));
         variables.putAll(funcArgs);
 
-        Pair<Type, List<String>> body = visitFunctionBody(ctx.functionBody());
-        if (functionType != body.getKey()) {
+        Pair<Pair<Type, List<String>>, Node> body = visitFunctionBody(ctx.functionBody());
+        if (functionType != body.getKey().getKey()) {
             throw new IllegalArgumentException("Function type and body type does not match");
         }
 
         code.add(functionHeader);
-        code.addAll(body.getValue());
+        code.addAll(body.getKey().getValue());
         code.add("}");
 
-        return new Pair<>(functionType, code);
+        return new Pair<>(new Pair<>(functionType, code), null);
     }
 
-    public Pair<Type, List<String>> visitIdList(@NotNull ProgrammingLanguageParser.IdListContext ctx) {
+    public Pair<Pair<Type, List<String>>, Node> visitIdList(@NotNull ProgrammingLanguageParser.IdListContext ctx) {
         throw new UnsupportedOperationException();
     }
 
-    public Pair<Type, List<String>> visitTypeSpecifier(@NotNull ProgrammingLanguageParser.TypeSpecifierContext ctx) {
+    public Pair<Pair<Type, List<String>>, Node> visitTypeSpecifier(@NotNull ProgrammingLanguageParser.TypeSpecifierContext ctx) {
         if (ctx.String_type() != null) {
-            return new Pair<>(Type.STRING, null);
+            return new Pair<>(new Pair<>(Type.STRING, null), null);
         } else if (ctx.Bool_type() != null) {
-            return new Pair<>(Type.BOOLEAN, null);
+            return new Pair<>(new Pair<>(Type.BOOLEAN, null), null);
         } else if (ctx.String_type() != null) {
-            return new Pair<>(Type.STRING, null);
+            return new Pair<>(new Pair<>(Type.STRING, null), null);
         } else if (ctx.Int_type() != null) {
-            return new Pair<>(Type.INT, null);
+            return new Pair<>(new Pair<>(Type.INT, null), null);
         } else if (ctx.Void_type() != null) {
-            return new Pair<>(Type.VOID, null);
+            return new Pair<>(new Pair<>(Type.VOID, null), null);
         }
 
         throw new UnsupportedOperationException("Unsupported type");
     }
 
-    public Pair<Type, List<String>> visitFunctionBody(@NotNull ProgrammingLanguageParser.FunctionBodyContext ctx) {
+    public Pair<Pair<Type, List<String>>, Node> visitFunctionBody(@NotNull ProgrammingLanguageParser.FunctionBodyContext ctx) {
         List<String> code = new LinkedList<>();
 
         for (ProgrammingLanguageParser.StatementContext sc : ctx.statement()) {
-            code.addAll(visitStatement(sc).getValue());
+            code.addAll(visitStatement(sc).getKey().getValue());
         }
 
         Type returnType = Type.VOID;
 
         if (ctx.expression() != null) {
-            Pair<Type, List<String>> returnStatement = visitExpression(ctx.expression());
-            returnType = returnStatement.getKey();
-            code.addAll(returnStatement.getValue());
+            Pair<Pair<Type, List<String>>, Node> returnStatement = visitExpression(ctx.expression());
+            returnType = returnStatement.getKey().getKey();
+            code.addAll(returnStatement.getKey().getValue());
             code.add("\tret " + getLLVMType(returnType)
                     + (returnType == Type.STRING ? "*" : "")
                     + " %tmp" + (varCounter - 1));
         }
 
-        return new Pair<>(returnType, code);
+        return new Pair<>(new Pair<>(returnType, code), null);
     }
 
-    public Pair<Type, List<String>> visitCompoundStatement(@NotNull ProgrammingLanguageParser.CompoundStatementContext ctx) {
+    public Pair<Pair<Type, List<String>>, Node> visitCompoundStatement(@NotNull ProgrammingLanguageParser.CompoundStatementContext ctx) {
         Map<String, Type> context = new HashMap<>();
         Map<String, List<String>> unionContext = new HashMap<>();
         context.putAll(variables);
@@ -162,15 +162,15 @@ public class Vizitor extends ProgrammingLanguageBaseVisitor<Pair<Type, List<Stri
 
         List<String> code = new ArrayList<>();
         for (ProgrammingLanguageParser.StatementContext statement : ctx.statement()) {
-            code.addAll(visitStatement(statement).getValue());
+            code.addAll(visitStatement(statement).getKey().getValue());
         }
 
         variables = context;
         unionMap = unionContext;
-        return new Pair<>(Type.VOID, code);
+        return new Pair<>(new Pair<>(Type.VOID, code), null);
     }
 
-    public Pair<Type, List<String>> visitStatement(@NotNull ProgrammingLanguageParser.StatementContext ctx) {
+    public Pair<Pair<Type, List<String>>, Node> visitStatement(@NotNull ProgrammingLanguageParser.StatementContext ctx) {
         if (ctx.functionCall() != null) {
             return visitFunctionCall(ctx.functionCall());
         } else if (ctx.assignment() != null) {
@@ -191,15 +191,15 @@ public class Vizitor extends ProgrammingLanguageBaseVisitor<Pair<Type, List<Stri
         throw new UnsupportedOperationException("Unexpected visit statement behavior");
     }
 
-    public Pair<Type, List<String>> visitUnionStatement(@NotNull ProgrammingLanguageParser.UnionStatementContext ctx) {
+    public Pair<Pair<Type, List<String>>, Node> visitUnionStatement(@NotNull ProgrammingLanguageParser.UnionStatementContext ctx) {
         List<String> unionId = new ArrayList<>();
         List<String> code = new ArrayList<>();
         for (ProgrammingLanguageParser.DeclarationIdContext declarationIdContext : ctx.declarationId()) {
-            Type type = visitTypeSpecifier(declarationIdContext.typeSpecifier()).getKey();
+            Type type = visitTypeSpecifier(declarationIdContext.typeSpecifier()).getKey().getKey();
             if (type == Type.STRING) {
                 throw new IllegalArgumentException("Strings are not allowed in union");
             }
-            code.addAll(visitDeclarationId(declarationIdContext).getValue());
+            code.addAll(visitDeclarationId(declarationIdContext).getKey().getValue());
             for (TerminalNode terminalNode : declarationIdContext.Id()) {
                 unionId.add(terminalNode.getText());
             }
@@ -209,37 +209,37 @@ public class Vizitor extends ProgrammingLanguageBaseVisitor<Pair<Type, List<Stri
                 unionMap.put(terminalNode.getText(), unionId);
             }
         }
-        return new Pair<>(Type.VOID, code);
+        return new Pair<>(new Pair<>(Type.VOID, code), null);
     }
 
-    public Pair<Type, List<String>> visitSelectionStatement(@NotNull ProgrammingLanguageParser.SelectionStatementContext ctx) {
+    public Pair<Pair<Type, List<String>>, Node> visitSelectionStatement(@NotNull ProgrammingLanguageParser.SelectionStatementContext ctx) {
         List<String> code = new ArrayList<>();
-        Pair<Type, List<String>> expression = visitExpression(ctx.expression());
-        code.addAll(expression.getValue());
+        Pair<Pair<Type, List<String>>, Node> expression = visitExpression(ctx.expression());
+        code.addAll(expression.getKey().getValue());
         if (ctx.If() != null) {
-            if (expression.getKey() != Type.BOOLEAN) {
+            if (expression.getKey().getKey() != Type.BOOLEAN) {
                 throw new IllegalArgumentException("If condition must be boolean");
             }
             int labelTrue = labelCounter++;
             int labelFalse = labelCounter++;
             code.add("\tbr i1 %tmp" + (varCounter - 1) + ", label %Label" + labelTrue + ", label %Label" + labelFalse);
             code.add("Label" + labelTrue + ":");
-            code.addAll(visitCompoundStatement(ctx.compoundStatement().get(0)).getValue());
+            code.addAll(visitCompoundStatement(ctx.compoundStatement().get(0)).getKey().getValue());
 
             if (ctx.compoundStatement().size() == 2) {
                 int labelEnd = labelCounter++;
                 code.add("\tbr label %Label" + labelEnd);
                 code.add("Label" + labelFalse + ":");
-                code.addAll(visitCompoundStatement(ctx.compoundStatement().get(1)).getValue());
+                code.addAll(visitCompoundStatement(ctx.compoundStatement().get(1)).getKey().getValue());
                 code.add("\tbr label %Label" + labelEnd);
                 code.add("Label" + labelEnd + ":");
             } else {
                 code.add("\tbr label %Label" + labelFalse);
                 code.add("Label" + labelFalse + ":");
             }
-            return new Pair<>(Type.VOID, code);
+            return new Pair<>(new Pair<>(Type.VOID, code), null);
         } else if (ctx.Switch() != null) {
-            if (expression.getKey() != Type.INT) {
+            if (expression.getKey().getKey() != Type.INT) {
                 throw new IllegalArgumentException("Switch statement works only for integer type");
             }
             int labelEnd = labelCounter++;
@@ -249,11 +249,11 @@ public class Vizitor extends ProgrammingLanguageBaseVisitor<Pair<Type, List<Stri
             String switchString = "\tswitch i32 %tmp" + (varCounter - 1) + ", label %Label" + labelEnd + " [";
             for (int i = 0; i < ctx.caseStatement().size(); ++i) {
                 ProgrammingLanguageParser.CaseStatementContext caseStatementContext = ctx.caseStatement(i);
-                Pair<Type, List<String>> caseExpression = visitExpression(caseStatementContext.expression());
-                if (caseExpression.getKey() != Type.INT) {
+                Pair<Pair<Type, List<String>>, Node> caseExpression = visitExpression(caseStatementContext.expression());
+                if (caseExpression.getKey().getKey() != Type.INT) {
                     throw new IllegalArgumentException("Switch statement works only for integer type");
                 }
-                code.addAll(caseExpression.getValue());
+                code.addAll(caseExpression.getKey().getValue());
                 switchString = switchString + " i32 %tmp" + (varCounter - 1) + ", label %Label" + (firstLabel + i);
             }
             switchString = switchString + "]";
@@ -261,22 +261,22 @@ public class Vizitor extends ProgrammingLanguageBaseVisitor<Pair<Type, List<Stri
 
             for (int i = 0; i < ctx.caseStatement().size(); ++i) {
                 code.add("Label" + (firstLabel + i) + ":");
-                code.addAll(visitCompoundStatement(ctx.caseStatement(i).compoundStatement()).getValue());
+                code.addAll(visitCompoundStatement(ctx.caseStatement(i).compoundStatement()).getKey().getValue());
                 code.add("\tbr label %Label" + labelEnd);
             }
 
             code.add("Label" + labelEnd + ":");
             endLabels.pop();
-            return new Pair<>(Type.VOID, code);
+            return new Pair<>(new Pair<>(Type.VOID, code), null);
         }
         throw new UnsupportedOperationException("Unexpected selection statement behavior");
     }
 
-    public Pair<Type, List<String>> visitCaseStatement(@NotNull ProgrammingLanguageParser.CaseStatementContext ctx) {
+    public Pair<Pair<Type, List<String>>, Node> visitCaseStatement(@NotNull ProgrammingLanguageParser.CaseStatementContext ctx) {
         throw new UnsupportedOperationException("You should not get there");
     }
 
-    public Pair<Type, List<String>> visitJumpStatement(@NotNull ProgrammingLanguageParser.JumpStatementContext ctx) {
+    public Pair<Pair<Type, List<String>>, Node> visitJumpStatement(@NotNull ProgrammingLanguageParser.JumpStatementContext ctx) {
         List<String> code = new ArrayList<>();
         if (ctx.Break() != null) {
             if (endLabels.isEmpty()) {
@@ -291,13 +291,13 @@ public class Vizitor extends ProgrammingLanguageBaseVisitor<Pair<Type, List<Stri
         } else {
             throw new UnsupportedOperationException("You should not get there");
         }
-        return new Pair<>(Type.VOID, code);
+        return new Pair<>(new Pair<>(Type.VOID, code), null);
     }
 
-    public Pair<Type, List<String>> visitWhileStatement(@NotNull ProgrammingLanguageParser.WhileStatementContext ctx) {
+    public Pair<Pair<Type, List<String>>, Node> visitWhileStatement(@NotNull ProgrammingLanguageParser.WhileStatementContext ctx) {
         List<String> code = new ArrayList<>();
-        Pair<Type, List<String>> expression = visitExpression(ctx.expression());
-        if (expression.getKey() != Type.BOOLEAN) {
+        Pair<Pair<Type, List<String>>, Node> expression = visitExpression(ctx.expression());
+        if (expression.getKey().getKey() != Type.BOOLEAN) {
             throw new IllegalArgumentException("While conditional should be boolean");
         }
         int startLabel = labelCounter++;
@@ -308,19 +308,19 @@ public class Vizitor extends ProgrammingLanguageBaseVisitor<Pair<Type, List<Stri
 
         code.add("\tbr label %Label" + startLabel);
         code.add("Label" + startLabel + ":");
-        code.addAll(expression.getValue());
+        code.addAll(expression.getKey().getValue());
         code.add("\tbr i1 %tmp" + (varCounter - 1) + ", label %Label" + bodyLabel + ", label %Label" + endLabel);
         code.add("Label" + bodyLabel + ":");
-        code.addAll(visitCompoundStatement(ctx.compoundStatement()).getValue());
+        code.addAll(visitCompoundStatement(ctx.compoundStatement()).getKey().getValue());
         code.add("\tbr label %Label" + startLabel);
         code.add("Label" + endLabel + ":");
 
         endLabels.pop();
         startWhileLabels.pop();
-        return new Pair<>(Type.VOID, code);
+        return new Pair<>(new Pair<>(Type.VOID, code), null);
     }
 
-    public Pair<Type, List<String>> visitFunctionCall(@NotNull ProgrammingLanguageParser.FunctionCallContext ctx) {
+    public Pair<Pair<Type, List<String>>, Node> visitFunctionCall(@NotNull ProgrammingLanguageParser.FunctionCallContext ctx) {
         List<String> code = new ArrayList<>();
         if (ctx.Read() != null) {
             String id = ctx.Id().getText();
@@ -347,11 +347,11 @@ public class Vizitor extends ProgrammingLanguageBaseVisitor<Pair<Type, List<Stri
                 default:
                     throw new UnsupportedOperationException("You should not be there");
             }
-            return new Pair<>(Type.VOID, code);
+            return new Pair<>(new Pair<>(Type.VOID, code), null);
         } else if (ctx.Write() != null) {
-            Pair<Type, List<String>> expression = visitExpression(ctx.expression());
-            code.addAll(expression.getValue());
-            Type type = expression.getKey();
+            Pair<Pair<Type, List<String>>, Node> expression = visitExpression(ctx.expression());
+            code.addAll(expression.getKey().getValue());
+            Type type = expression.getKey().getKey();
             switch (type) {
                 case INT:
                     code.add("\tcall i32 (i8*, ...)* @printf(i8* getelementptr inbounds ([3 x i8]* @.write_int, i32 0, i32 0), i32 %tmp" + (varCounter - 1) + ") nounwind");
@@ -377,16 +377,16 @@ public class Vizitor extends ProgrammingLanguageBaseVisitor<Pair<Type, List<Stri
                 default:
                     throw new UnsupportedOperationException("Can not write void type");
             }
-            return new Pair<>(Type.VOID, code);
+            return new Pair<>(new Pair<>(Type.VOID, code), null);
         } else if (ctx.Length() != null) {
-            Pair<Type, List<String>> expression = visitExpression(ctx.expression());
-            if (expression.getKey() != Type.STRING) {
+            Pair<Pair<Type, List<String>>, Node> expression = visitExpression(ctx.expression());
+            if (expression.getKey().getKey() != Type.STRING) {
                 throw new IllegalArgumentException("Length function works with strings only");
             }
-            code.addAll(expression.getValue());
+            code.addAll(expression.getKey().getValue());
             code.add("\t%help_tmp" + helpCounter++ + " = getelementptr inbounds [256 x i8]* %tmp" + (varCounter - 1) + ", i32 0, i32 0");
             code.add("\t%tmp" + varCounter++ + " = call i32 @strlen(i8* %help_tmp" + (helpCounter - 1) + ") nounwind readonly");
-            return new Pair<>(Type.INT, code);
+            return new Pair<>(new Pair<>(Type.INT, code), null);
         } else if (ctx.Id() != null) {
             String id = ctx.Id().getText();
             if (!functions.containsKey(id)) {
@@ -400,14 +400,14 @@ public class Vizitor extends ProgrammingLanguageBaseVisitor<Pair<Type, List<Stri
             Iterator<Type> typeIterator = functions.get(id).getValue().iterator();
             for (ProgrammingLanguageParser.ExpressionContext expressionContext : ctx.expressionList().expression()) {
                 Type argType = typeIterator.next();
-                Pair<Type, List<String>> expr = visitExpression(expressionContext);
-                if (expr.getKey() != argType) {
+                Pair<Pair<Type, List<String>>, Node> expr = visitExpression(expressionContext);
+                if (expr.getKey().getKey() != argType) {
                     throw new IllegalArgumentException("Expected type " + argType.toString() + ", found " + expr.getKey() + " for " + argsNum.size() + " argument of call to " + id + " function");
                 }
-                code.addAll(expr.getValue());
+                code.addAll(expr.getKey().getValue());
                 if (argType != Type.STRING) {
-                    code.add("\t%tmp" + varCounter++ + " = alloca " + getLLVMType(expr.getKey()));
-                    code.add("\tstore " + getLLVMType(expr.getKey()) + " %tmp" + (varCounter - 2) + ", " + getLLVMType(expr.getKey()) + "* %tmp" + (varCounter - 1));
+                    code.add("\t%tmp" + varCounter++ + " = alloca " + getLLVMType(expr.getKey().getKey()));
+                    code.add("\tstore " + getLLVMType(expr.getKey().getKey()) + " %tmp" + (varCounter - 2) + ", " + getLLVMType(expr.getKey().getKey()) + "* %tmp" + (varCounter - 1));
                 }
                 argsNum.add(varCounter - 1);
             }
@@ -423,50 +423,58 @@ public class Vizitor extends ProgrammingLanguageBaseVisitor<Pair<Type, List<Stri
                 call = "%tmp" + varCounter++ + " = " + call;
             }
             code.add("\t" + call);
-            return new Pair<>(functSignature.getKey(), code);
+            return new Pair<>(new Pair<>(functSignature.getKey(), code), null);
         } else {
             throw new UnsupportedOperationException("You should not get there");
         }
     }
 
-    public Pair<Type, List<String>> visitExpressionList(@NotNull ProgrammingLanguageParser.ExpressionListContext ctx) {
-        return null;
+    public Pair<Pair<Type, List<String>>, Node> visitExpressionList(@NotNull ProgrammingLanguageParser.ExpressionListContext ctx) {
+        throw new UnsupportedOperationException("You should not be there");
     }
 
-    public Pair<Type, List<String>> visitExpression(@NotNull ProgrammingLanguageParser.ExpressionContext ctx) {
-        Pair<Type, List<String>> andExpr = visitAndExpr(ctx.andExpr(0));
+    public Pair<Pair<Type, List<String>>, Node> visitExpression(@NotNull ProgrammingLanguageParser.ExpressionContext ctx) {
+        Pair<Pair<Type, List<String>>, Node> andExpr = visitAndExpr(ctx.andExpr(0));
+        Node node = andExpr.getValue();
         int andExprNumber = varCounter - 1;
         for (int i = 1; i < ctx.andExpr().size(); ++i) {
-            Pair<Type, List<String>> nextAndExpr = visitAndExpr(ctx.andExpr(i));
+            Pair<Pair<Type, List<String>>, Node> nextAndExpr = visitAndExpr(ctx.andExpr(i));
             int nextAndExprNumber = varCounter - 1;
-            if (andExpr.getKey() == Type.BOOLEAN && nextAndExpr.getKey() == Type.BOOLEAN) {
-                andExpr.getValue().addAll(nextAndExpr.getValue());
-                andExpr.getValue().add("\t%tmp" + varCounter + " = or i1 %tmp" + andExprNumber + ", %tmp" + nextAndExprNumber);
+            if (andExpr.getKey().getKey() == Type.BOOLEAN && nextAndExpr.getKey().getKey() == Type.BOOLEAN) {
+                andExpr.getKey().getValue().addAll(nextAndExpr.getKey().getValue());
+                andExpr.getKey().getValue().add("\t%tmp" + varCounter + " = or i1 %tmp" + andExprNumber + ", %tmp" + nextAndExprNumber);
                 andExprNumber = varCounter++;
+                if (node != null && nextAndExpr.getValue() != null) {
+                    node = new OrNode(node, nextAndExpr.getValue());
+                }
             } else {
                 throw new IllegalArgumentException("Both values must be boolean");
             }
         }
 
-        return andExpr;
+        return new Pair<>(andExpr.getKey(), node);
     }
 
-    public Pair<Type, List<String>> visitAndExpr(@NotNull ProgrammingLanguageParser.AndExprContext ctx) {
-        Pair<Type, List<String>> eqExpr = visitEqExpr(ctx.eqExpr(0));
+    public Pair<Pair<Type, List<String>>, Node> visitAndExpr(@NotNull ProgrammingLanguageParser.AndExprContext ctx) {
+        Pair<Pair<Type, List<String>>, Node> eqExpr = visitEqExpr(ctx.eqExpr(0));
+        Node node = eqExpr.getValue();
         int eqExprNumber = varCounter - 1;
         for (int i = 1; i < ctx.eqExpr().size(); ++i) {
-            Pair<Type, List<String>> nextEqExpr = visitEqExpr(ctx.eqExpr(i));
+            Pair<Pair<Type, List<String>>, Node> nextEqExpr = visitEqExpr(ctx.eqExpr(i));
             int nextEqExprNumber = varCounter - 1;
-            if (eqExpr.getKey() == Type.BOOLEAN && nextEqExpr.getKey() == Type.BOOLEAN) {
-                eqExpr.getValue().addAll(nextEqExpr.getValue());
-                eqExpr.getValue().add("\t%tmp" + varCounter + " = and i1 %tmp" + eqExprNumber + ", %tmp" + nextEqExprNumber);
+            if (eqExpr.getKey().getKey() == Type.BOOLEAN && nextEqExpr.getKey().getKey() == Type.BOOLEAN) {
+                eqExpr.getKey().getValue().addAll(nextEqExpr.getKey().getValue());
+                eqExpr.getKey().getValue().add("\t%tmp" + varCounter + " = and i1 %tmp" + eqExprNumber + ", %tmp" + nextEqExprNumber);
                 eqExprNumber = varCounter++;
+                if (node != null && nextEqExpr.getValue() != null) {
+                    node = new AndNode(node, nextEqExpr.getValue());
+                }
             } else {
                 throw new IllegalArgumentException("Both values must be boolean");
             }
         }
 
-        return eqExpr;
+        return new Pair<>(eqExpr.getKey(), node);
     }
 
     private String getEqOperationType(String operation) {
@@ -480,36 +488,57 @@ public class Vizitor extends ProgrammingLanguageBaseVisitor<Pair<Type, List<Stri
         }
     }
 
-    public Pair<Type, List<String>> visitEqExpr(@NotNull ProgrammingLanguageParser.EqExprContext ctx) {
-        Pair<Type, List<String>> relExpr = visitRelExpr(ctx.relExpr(0));
+    private Node getEqOperationNode(String operation, Node left, Node right) {
+        switch (operation) {
+            case "==":
+                return new EqNode(left, right);
+            case "!=":
+                return new NeNode(left, right);
+            default:
+                throw new IllegalArgumentException();
+        }
+    }
+
+    public Pair<Pair<Type, List<String>>, Node> visitEqExpr(@NotNull ProgrammingLanguageParser.EqExprContext ctx) {
+        Pair<Pair<Type, List<String>>, Node> relExpr = visitRelExpr(ctx.relExpr(0));
+        Node node = relExpr.getValue();
         int relExprNumber = varCounter - 1;
         for (int i = 1; i < ctx.relExpr().size(); ++i) {
-            Pair<Type, List<String>> nextRelExpr = visitRelExpr(ctx.relExpr(i));
+            Pair<Pair<Type, List<String>>, Node> nextRelExpr = visitRelExpr(ctx.relExpr(i));
             int nextRelExprNumber = varCounter - 1;
             String operationType = getEqOperationType(ctx.getChild(i * 2 - 1).getText());
-            if (relExpr.getKey() == Type.BOOLEAN && nextRelExpr.getKey() == Type.BOOLEAN) {
-                relExpr.getValue().addAll(nextRelExpr.getValue());
-                relExpr.getValue().add("\t%tmp" + varCounter + " = icmp " + operationType + " i1 %tmp" + relExprNumber + ", %tmp" + nextRelExprNumber);
+            if (relExpr.getKey().getKey() == Type.BOOLEAN && nextRelExpr.getKey().getKey() == Type.BOOLEAN) {
+                relExpr.getKey().getValue().addAll(nextRelExpr.getKey().getValue());
+                relExpr.getKey().getValue().add("\t%tmp" + varCounter + " = icmp " + operationType + " i1 %tmp" + relExprNumber + ", %tmp" + nextRelExprNumber);
                 relExprNumber = varCounter++;
-            } else if (relExpr.getKey() == Type.INT && nextRelExpr.getKey() == Type.INT) {
-                relExpr.getValue().addAll(nextRelExpr.getValue());
-                relExpr.getValue().add("\t%tmp" + varCounter + " = icmp " + operationType + " i32 %tmp" + relExprNumber + ", %tmp" + nextRelExprNumber);
+                if (node != null && nextRelExpr.getValue() != null) {
+                    node = getEqOperationNode(ctx.getChild(i * 2 - 1).getText(), node, nextRelExpr.getValue());
+                }
+            } else if (relExpr.getKey().getKey() == Type.INT && nextRelExpr.getKey().getKey() == Type.INT) {
+                relExpr.getKey().getValue().addAll(nextRelExpr.getKey().getValue());
+                relExpr.getKey().getValue().add("\t%tmp" + varCounter + " = icmp " + operationType + " i32 %tmp" + relExprNumber + ", %tmp" + nextRelExprNumber);
                 relExprNumber = varCounter++;
-                relExpr = new Pair<>(Type.BOOLEAN, relExpr.getValue());
-            } else if (relExpr.getKey() == Type.STRING && nextRelExpr.getKey() == Type.STRING) {
-                relExpr.getValue().addAll(nextRelExpr.getValue());
-                relExpr.getValue().add("\t%help_tmp" + helpCounter++ + " = getelementptr inbounds [256 x i8]* %tmp" + (varCounter - 1) + ", i32 0, i32 0");
-                relExpr.getValue().add("\t%help_tmp" + helpCounter++ + " = getelementptr inbounds [256 x i8]* %tmp" + relExprNumber + ", i32 0, i32 0");
-                relExpr.getValue().add("\t%tmp" + varCounter++ + " = call i32 @strcmp(i8* %help_tmp" + (helpCounter - 2) + ", i8* %help_tmp" + (helpCounter - 1) + ") nounwind readonly");
-                relExpr.getValue().add("\t%tmp" + varCounter + " = icmp " + operationType + " i32 0, %tmp" + (varCounter - 1));
+                if (node != null && nextRelExpr.getValue() != null) {
+                    node = getEqOperationNode(ctx.getChild(i * 2 - 1).getText(), node, nextRelExpr.getValue());
+                }
+                relExpr = new Pair<>(new Pair<>(Type.BOOLEAN, relExpr.getKey().getValue()), node);
+            } else if (relExpr.getKey().getKey() == Type.STRING && nextRelExpr.getKey().getKey() == Type.STRING) {
+                relExpr.getKey().getValue().addAll(nextRelExpr.getKey().getValue());
+                relExpr.getKey().getValue().add("\t%help_tmp" + helpCounter++ + " = getelementptr inbounds [256 x i8]* %tmp" + (varCounter - 1) + ", i32 0, i32 0");
+                relExpr.getKey().getValue().add("\t%help_tmp" + helpCounter++ + " = getelementptr inbounds [256 x i8]* %tmp" + relExprNumber + ", i32 0, i32 0");
+                relExpr.getKey().getValue().add("\t%tmp" + varCounter++ + " = call i32 @strcmp(i8* %help_tmp" + (helpCounter - 2) + ", i8* %help_tmp" + (helpCounter - 1) + ") nounwind readonly");
+                relExpr.getKey().getValue().add("\t%tmp" + varCounter + " = icmp " + operationType + " i32 0, %tmp" + (varCounter - 1));
                 relExprNumber = varCounter++;
-                relExpr = new Pair<>(Type.BOOLEAN, relExpr.getValue());
+                if (node != null && nextRelExpr.getValue() != null) {
+                    node = getEqOperationNode(ctx.getChild(i * 2 - 1).getText(), node, nextRelExpr.getValue());
+                }
+                relExpr = new Pair<>(new Pair<>(Type.BOOLEAN, relExpr.getKey().getValue()), node);
             } else {
                 throw new IllegalArgumentException("Both values must be boolean");
             }
         }
 
-        return relExpr;
+        return new Pair<>(relExpr.getKey(), node);
     }
 
     private String getRelOperationType(String operation) {
@@ -527,32 +556,54 @@ public class Vizitor extends ProgrammingLanguageBaseVisitor<Pair<Type, List<Stri
         }
     }
 
-    public Pair<Type, List<String>> visitRelExpr(@NotNull ProgrammingLanguageParser.RelExprContext ctx) {
-        Pair<Type, List<String>> addExpr = visitAddExpr(ctx.addExpr(0));
+    private Node getRelOperationNode(String operation, Node left, Node right) {
+        switch (operation) {
+            case ">=":
+                return new GENode(left, right);
+            case "<=":
+                return new LENode(left, right);
+            case ">":
+                return new GNode(left, right);
+            case "<":
+                return new LNode(left, right);
+            default:
+                throw new IllegalArgumentException();
+        }
+    }
+
+    public Pair<Pair<Type, List<String>>, Node> visitRelExpr(@NotNull ProgrammingLanguageParser.RelExprContext ctx) {
+        Pair<Pair<Type, List<String>>, Node> addExpr = visitAddExpr(ctx.addExpr(0));
+        Node node = addExpr.getValue();
         int addExprNumber = varCounter - 1;
         for (int i = 1; i < ctx.addExpr().size(); ++i) {
-            Pair<Type, List<String>> nextAddExpr = visitAddExpr(ctx.addExpr(i));
+            Pair<Pair<Type, List<String>>, Node> nextAddExpr = visitAddExpr(ctx.addExpr(i));
             int nextAddExprNumber = varCounter - 1;
             String operationType = getRelOperationType(ctx.getChild(i * 2 - 1).getText());
-            if (addExpr.getKey() == Type.INT && nextAddExpr.getKey() == Type.INT) {
-                addExpr.getValue().addAll(nextAddExpr.getValue());
-                addExpr.getValue().add("\t%tmp" + varCounter + " = icmp " + operationType + " i32 %tmp" + addExprNumber + ", %tmp" + nextAddExprNumber);
+            if (addExpr.getKey().getKey() == Type.INT && nextAddExpr.getKey().getKey() == Type.INT) {
+                addExpr.getKey().getValue().addAll(nextAddExpr.getKey().getValue());
+                addExpr.getKey().getValue().add("\t%tmp" + varCounter + " = icmp " + operationType + " i32 %tmp" + addExprNumber + ", %tmp" + nextAddExprNumber);
                 addExprNumber = varCounter++;
-                addExpr = new Pair<>(Type.BOOLEAN, addExpr.getValue());
-            } else if (addExpr.getKey() == Type.STRING && nextAddExpr.getKey() == Type.STRING) {
-                addExpr.getValue().addAll(nextAddExpr.getValue());
-                addExpr.getValue().add("\t%help_tmp" + helpCounter++ + " = getelementptr inbounds [256 x i8]* %tmp" + (varCounter - 1) + ", i32 0, i32 0");
-                addExpr.getValue().add("\t%help_tmp" + helpCounter++ + " = getelementptr inbounds [256 x i8]* %tmp" + addExprNumber + ", i32 0, i32 0");
-                addExpr.getValue().add("\t%tmp" + varCounter++ + " = call i32 @strcmp(i8* %help_tmp" + (helpCounter - 2) + ", i8* %help_tmp" + (helpCounter - 1) + ") nounwind readonly");
-                addExpr.getValue().add("\t%tmp" + varCounter + " = icmp " + operationType + " i32 0, %tmp" + (varCounter - 1));
+                if (node != null && nextAddExpr.getValue() != null) {
+                    node = getRelOperationNode(ctx.getChild(i * 2 - 1).getText(), node, nextAddExpr.getValue());
+                }
+                addExpr = new Pair<>(new Pair<>(Type.BOOLEAN, addExpr.getKey().getValue()), node);
+            } else if (addExpr.getKey().getKey() == Type.STRING && nextAddExpr.getKey().getKey() == Type.STRING) {
+                addExpr.getKey().getValue().addAll(nextAddExpr.getKey().getValue());
+                addExpr.getKey().getValue().add("\t%help_tmp" + helpCounter++ + " = getelementptr inbounds [256 x i8]* %tmp" + (varCounter - 1) + ", i32 0, i32 0");
+                addExpr.getKey().getValue().add("\t%help_tmp" + helpCounter++ + " = getelementptr inbounds [256 x i8]* %tmp" + addExprNumber + ", i32 0, i32 0");
+                addExpr.getKey().getValue().add("\t%tmp" + varCounter++ + " = call i32 @strcmp(i8* %help_tmp" + (helpCounter - 2) + ", i8* %help_tmp" + (helpCounter - 1) + ") nounwind readonly");
+                addExpr.getKey().getValue().add("\t%tmp" + varCounter + " = icmp " + operationType + " i32 0, %tmp" + (varCounter - 1));
                 addExprNumber = varCounter++;
-                addExpr = new Pair<>(Type.BOOLEAN, addExpr.getValue());
+                if (node != null && nextAddExpr.getValue() != null) {
+                    node = getRelOperationNode(ctx.getChild(i * 2 - 1).getText(), node, nextAddExpr.getValue());
+                }
+                addExpr = new Pair<>(new Pair<>(Type.BOOLEAN, addExpr.getKey().getValue()), node);
             } else {
                 throw new IllegalArgumentException("Both values must have same type");
             }
         }
 
-        return addExpr;
+        return new Pair<>(addExpr.getKey(), node);
     }
 
     private String getAddOperationType(String operation) {
@@ -566,32 +617,50 @@ public class Vizitor extends ProgrammingLanguageBaseVisitor<Pair<Type, List<Stri
         }
     }
 
-    public Pair<Type, List<String>> visitAddExpr(@NotNull ProgrammingLanguageParser.AddExprContext ctx) {
-        Pair<Type, List<String>> mulExpr = visitMulExpr(ctx.mulExpr(0));
+    private Node getAddOperationNode(String operation, Node left, Node right) {
+        switch (operation) {
+            case "+":
+                return new AndNode(left, right);
+            case "-":
+                return new SubNode(left, right);
+            default:
+                throw new IllegalArgumentException();
+        }
+    }
+
+    public Pair<Pair<Type, List<String>>, Node> visitAddExpr(@NotNull ProgrammingLanguageParser.AddExprContext ctx) {
+        Pair<Pair<Type, List<String>>, Node> mulExpr = visitMulExpr(ctx.mulExpr(0));
+        Node node = mulExpr.getValue();
         int mulExprNumber = varCounter - 1;
         for (int i = 1; i < ctx.mulExpr().size(); ++i) {
-            Pair<Type, List<String>> nextMulExpr = visitMulExpr(ctx.mulExpr(i));
+            Pair<Pair<Type, List<String>>, Node> nextMulExpr = visitMulExpr(ctx.mulExpr(i));
             int nextMulExprNumber = varCounter - 1;
             String operationType = getAddOperationType(ctx.getChild(i * 2 - 1).getText());
-            if (mulExpr.getKey() == Type.INT && nextMulExpr.getKey() == Type.INT) {
-                mulExpr.getValue().addAll(nextMulExpr.getValue());
-                mulExpr.getValue().add("\t%tmp" + varCounter + " = " + operationType + " i32 %tmp" + mulExprNumber + ", %tmp" + nextMulExprNumber);
+            if (mulExpr.getKey().getKey() == Type.INT && nextMulExpr.getKey().getKey() == Type.INT) {
+                mulExpr.getKey().getValue().addAll(nextMulExpr.getKey().getValue());
+                mulExpr.getKey().getValue().add("\t%tmp" + varCounter + " = " + operationType + " i32 %tmp" + mulExprNumber + ", %tmp" + nextMulExprNumber);
                 mulExprNumber = varCounter++;
-            } else if (mulExpr.getKey() == Type.STRING && nextMulExpr.getKey() == Type.STRING) {
-                mulExpr.getValue().addAll(nextMulExpr.getValue());
-                mulExpr.getValue().add("\t%tmp" + varCounter++ + " = alloca [256 x i8]");
-                mulExpr.getValue().add("\t%help_tmp" + helpCounter++ + " = getelementptr inbounds [256 x i8]* %tmp" + (varCounter - 1) + ", i32 0, i32 0");
-                mulExpr.getValue().add("\t%help_tmp" + helpCounter++ + " = getelementptr inbounds [256 x i8]* %tmp" + mulExprNumber + ", i32 0, i32 0");
-                mulExpr.getValue().add("\tcall i8* @strcpy(i8* %help_tmp" + (helpCounter - 2) + ", i8* %help_tmp" + (helpCounter - 1) + ") nounwind");
-                mulExpr.getValue().add("\t%help_tmp" + helpCounter++ + " = getelementptr inbounds [256 x i8]* %tmp" + nextMulExprNumber + ", i32 0, i32 0");
-                mulExpr.getValue().add("\tcall i8* @strcat(i8* %help_tmp" + (helpCounter - 3) + ", i8* %help_tmp" + (helpCounter - 1) + ") nounwind");
+                if (node != null && nextMulExpr.getValue() != null) {
+                    node = getAddOperationNode(ctx.getChild(i * 2 - 1).getText(), node, nextMulExpr.getValue());
+                }
+            } else if (mulExpr.getKey().getKey() == Type.STRING && nextMulExpr.getKey().getKey() == Type.STRING) {
+                mulExpr.getKey().getValue().addAll(nextMulExpr.getKey().getValue());
+                mulExpr.getKey().getValue().add("\t%tmp" + varCounter++ + " = alloca [256 x i8]");
+                mulExpr.getKey().getValue().add("\t%help_tmp" + helpCounter++ + " = getelementptr inbounds [256 x i8]* %tmp" + (varCounter - 1) + ", i32 0, i32 0");
+                mulExpr.getKey().getValue().add("\t%help_tmp" + helpCounter++ + " = getelementptr inbounds [256 x i8]* %tmp" + mulExprNumber + ", i32 0, i32 0");
+                mulExpr.getKey().getValue().add("\tcall i8* @strcpy(i8* %help_tmp" + (helpCounter - 2) + ", i8* %help_tmp" + (helpCounter - 1) + ") nounwind");
+                mulExpr.getKey().getValue().add("\t%help_tmp" + helpCounter++ + " = getelementptr inbounds [256 x i8]* %tmp" + nextMulExprNumber + ", i32 0, i32 0");
+                mulExpr.getKey().getValue().add("\tcall i8* @strcat(i8* %help_tmp" + (helpCounter - 3) + ", i8* %help_tmp" + (helpCounter - 1) + ") nounwind");
                 mulExprNumber = varCounter - 1;
+                if (node != null && nextMulExpr.getValue() != null) {
+                    node = getAddOperationNode(ctx.getChild(i * 2 - 1).getText(), node, nextMulExpr.getValue());
+                }
             } else {
                 throw new IllegalArgumentException("Both values must have int or string type");
             }
         }
 
-        return mulExpr;
+        return new Pair<>(mulExpr.getKey(), node);
     }
 
     private String getMulOperationType(String operation) {
@@ -607,37 +676,54 @@ public class Vizitor extends ProgrammingLanguageBaseVisitor<Pair<Type, List<Stri
         }
     }
 
-    public Pair<Type, List<String>> visitMulExpr(@NotNull ProgrammingLanguageParser.MulExprContext ctx) {
-        Pair<Type, List<String>> atom = visitAtom(ctx.atom(0));
+    private Node getMulOperationNode(String operation, Node left, Node right) {
+        switch (operation) {
+            case "*":
+                return new MultNode(left, right);
+            case "/":
+                return new DivNode(left, right);
+            case "%":
+                return new RemNode(left, right);
+            default:
+                throw new IllegalArgumentException();
+        }
+    }
+
+    public Pair<Pair<Type, List<String>>, Node> visitMulExpr(@NotNull ProgrammingLanguageParser.MulExprContext ctx) {
+        Pair<Pair<Type, List<String>>, Node> atom = visitAtom(ctx.atom(0));
+        Node node = atom.getValue();
         int atomNumber = varCounter - 1;
         for (int i = 1; i < ctx.atom().size(); ++i) {
-            Pair<Type, List<String>> nextAtom = visitAtom(ctx.atom(i));
+            Pair<Pair<Type, List<String>>, Node> nextAtom = visitAtom(ctx.atom(i));
             int nextAtomNumber = varCounter - 1;
             String operationType = getMulOperationType(ctx.getChild(i * 2 - 1).getText());
-            if (atom.getKey() == Type.INT && nextAtom.getKey() == Type.INT) {
-                atom.getValue().addAll(nextAtom.getValue());
-                atom.getValue().add("\t%tmp" + varCounter + " = " + operationType + " i32 %tmp" + atomNumber + ", %tmp" + nextAtomNumber);
+            if (atom.getKey().getKey() == Type.INT && nextAtom.getKey().getKey() == Type.INT) {
+                atom.getKey().getValue().addAll(nextAtom.getKey().getValue());
+                atom.getKey().getValue().add("\t%tmp" + varCounter + " = " + operationType + " i32 %tmp" + atomNumber + ", %tmp" + nextAtomNumber);
                 atomNumber = varCounter++;
+                if (node != null && nextAtom.getValue() != null) {
+                    node = getMulOperationNode(ctx.getChild(i * 2 - 1).getText(), node, nextAtom.getValue());
+                }
             } else {
                 throw new IllegalArgumentException("Both values must have int type");
             }
         }
 
-        return atom;
+        return new Pair<>(atom.getKey(), node);
     }
 
-    public Pair<Type, List<String>> visitAtom(@NotNull ProgrammingLanguageParser.AtomContext ctx) {
+    public Pair<Pair<Type, List<String>>, Node> visitAtom(@NotNull ProgrammingLanguageParser.AtomContext ctx) {
         List<String> code = new LinkedList<>();
         if (ctx.Bool() != null) {
             code.add("\t%tmp" + varCounter++ + " = alloca i1");
             code.add("\tstore i1 " + (ctx.Bool().getText().equals("true") ? 1 : 0) + ", i1* %tmp" + (varCounter - 1));
             code.add("\t%tmp" + varCounter++ + " = load i1* %tmp" + (varCounter - 2));
-            return new Pair<>(Type.BOOLEAN, code);
+            return new Pair<>(new Pair<>(Type.BOOLEAN, code), new BoolNode(ctx.Bool().getText().equals("true")));
         } else if (ctx.Int() != null) {
             code.add("\t%tmp" + varCounter++ + " = alloca i32");
             code.add("\tstore i32 " + ctx.Int().getText() + ", i32* %tmp" + (varCounter - 1));
             code.add("\t%tmp" + varCounter++ + " = load i32* %tmp" + (varCounter - 2));
-            return new Pair<>(Type.INT, code);
+            return new Pair<>(new Pair<>(Type.INT, code), new IntNode(Integer.valueOf(ctx.Int().getText())));
         } else if (ctx.lookup() != null) {
             return visitLookup(ctx.lookup());
         } else {
@@ -655,9 +741,9 @@ public class Vizitor extends ProgrammingLanguageBaseVisitor<Pair<Type, List<Stri
         return result;
     }
 
-    public Pair<Type, List<String>> visitLookup(@NotNull ProgrammingLanguageParser.LookupContext ctx) {
+    public Pair<Pair<Type, List<String>>, Node> visitLookup(@NotNull ProgrammingLanguageParser.LookupContext ctx) {
         List<String> code = new LinkedList<>();
-        Pair<Type, List<String>> result;
+        Pair<Pair<Type, List<String>>, Node> result;
         if (ctx.Id() != null) {
             String id = ctx.Id().getText();
             if (!variables.containsKey(id)) {
@@ -668,7 +754,7 @@ public class Vizitor extends ProgrammingLanguageBaseVisitor<Pair<Type, List<Stri
                 code.add("\t%tmp" + varCounter++ + " = alloca [256 x i8]");
                 code.add("\tstore [256 x i8] %tmp" + (varCounter - 2) + ", [256 x i8]* %tmp" + (varCounter - 1));
             }
-            result = new Pair<>(variables.get(id), code);
+            result = new Pair<>(new Pair<>(variables.get(id), code), new IdNode(id, variables.get(id), nameCounter.get(id)));
         } else if (ctx.String() != null) {
             String str = ctx.String().getText();
             str = str.substring(1, str.length() - 1);
@@ -686,7 +772,7 @@ public class Vizitor extends ProgrammingLanguageBaseVisitor<Pair<Type, List<Stri
             code.add("\t%tmp" + varCounter++ + " = alloca [256 x i8]");
             code.add("\t%help_tmp" + helpCounter++ + " = bitcast [256 x i8]* %tmp" + (varCounter - 1) + " to i8*");
             code.add("\tcall void @llvm.memcpy.p0i8.p0i8.i32(i8* %help_tmp" + (helpCounter - 1) + ", i8* getelementptr inbounds ([256 x i8]* @.str" + (constCounter - 1) + ", i32 0, i32 0), i32 256, i32 1, i1 false)");
-            result = new Pair<>(Type.STRING, code);
+            result = new Pair<>(new Pair<>(Type.STRING, code), new StringNode(str));
         } else if (ctx.expression() != null) {
             result = visitExpression(ctx.expression());
         } else if (ctx.functionCall() != null) {
@@ -695,42 +781,50 @@ public class Vizitor extends ProgrammingLanguageBaseVisitor<Pair<Type, List<Stri
             throw new UnsupportedOperationException();
         }
         if (ctx.index() != null) {
-            if (result.getKey() != Type.STRING) {
+            if (result.getKey().getKey() != Type.STRING) {
                 throw new IllegalArgumentException("Can not use index with " + result.getKey().toString() + ", only suitable for string type");
             }
             int stringNumber = varCounter - 1;
-            Pair<Type, List<String>> expr = visitExpression(ctx.index().expression());
-            if (expr.getKey() != Type.INT) {
+            Pair<Pair<Type, List<String>>, Node> expr = visitExpression(ctx.index().expression());
+            if (expr.getKey().getKey() != Type.INT) {
                 throw new IllegalArgumentException("Index must be integer");
             }
-            result.getValue().addAll(expr.getValue());
-            result.getValue().add("\t%tmp" + varCounter++ + " = alloca [256 x i8]");
-            result.getValue().add("\t%help_tmp" + helpCounter++ + " = getelementptr inbounds [256 x i8]* %tmp" + stringNumber + ", i32 0, i32 %tmp" + (varCounter - 2));
-            result.getValue().add("\t%help_tmp" + helpCounter++ + " = load i8* %help_tmp" + (helpCounter - 2));
-            result.getValue().add("\t%help_tmp" + helpCounter++ + " = getelementptr inbounds [256 x i8]* %tmp" + (varCounter - 1) + ", i32 0, i32 0");
-            result.getValue().add("\tstore i8 %help_tmp" + (helpCounter - 2) + ", i8* %help_tmp" + (helpCounter - 1) + ", align 1");
-            result.getValue().add("\t%help_tmp" + helpCounter++ + " = getelementptr inbounds [256 x i8]* %tmp" + (varCounter - 1) + ", i32 0, i32 1");
-            result.getValue().add("\tstore i8 0, i8* %help_tmp" + (helpCounter - 1) + ", align 1");
+            result.getKey().getValue().addAll(expr.getKey().getValue());
+            result.getKey().getValue().add("\t%tmp" + varCounter++ + " = alloca [256 x i8]");
+            result.getKey().getValue().add("\t%help_tmp" + helpCounter++ + " = getelementptr inbounds [256 x i8]* %tmp" + stringNumber + ", i32 0, i32 %tmp" + (varCounter - 2));
+            result.getKey().getValue().add("\t%help_tmp" + helpCounter++ + " = load i8* %help_tmp" + (helpCounter - 2));
+            result.getKey().getValue().add("\t%help_tmp" + helpCounter++ + " = getelementptr inbounds [256 x i8]* %tmp" + (varCounter - 1) + ", i32 0, i32 0");
+            result.getKey().getValue().add("\tstore i8 %help_tmp" + (helpCounter - 2) + ", i8* %help_tmp" + (helpCounter - 1) + ", align 1");
+            result.getKey().getValue().add("\t%help_tmp" + helpCounter++ + " = getelementptr inbounds [256 x i8]* %tmp" + (varCounter - 1) + ", i32 0, i32 1");
+            result.getKey().getValue().add("\tstore i8 0, i8* %help_tmp" + (helpCounter - 1) + ", align 1");
+
+            Node simplifiedString = result.getValue();
+            Node simplifiedIndex = expr.getValue().simplify();
+            if (simplifiedString instanceof StringNode && simplifiedIndex instanceof IntNode) {
+                String str = ((StringNode) simplifiedString).getValue();
+                Integer index = ((IntNode) simplifiedIndex).getValue();
+                result = new Pair<>(result.getKey(), new StringNode(str.substring(index, index + 1)));
+            }
         }
         return result;
     }
 
-    public Pair<Type, List<String>> visitIndex(@NotNull ProgrammingLanguageParser.IndexContext ctx) {
-        Pair<Type, List<String>> expr = visitExpression(ctx.expression());
-        if (expr.getKey() != Type.INT) {
+    public Pair<Pair<Type, List<String>>, Node> visitIndex(@NotNull ProgrammingLanguageParser.IndexContext ctx) {
+        Pair<Pair<Type, List<String>>, Node> expr = visitExpression(ctx.expression());
+        if (expr.getKey().getKey() != Type.INT) {
             throw new IllegalArgumentException("Index must integer value");
         }
         return expr;
     }
 
-    public Pair<Type, List<String>> visitUnionAssignment(@NotNull ProgrammingLanguageParser.AssignmentContext ctx) {
+    public Pair<Pair<Type, List<String>>, Node> visitUnionAssignment(@NotNull ProgrammingLanguageParser.AssignmentContext ctx) {
         List<String> ids = unionMap.get(ctx.Id().getText());
-        Pair<Type, List<String>> expr = visitExpression(ctx.expression());
+        Pair<Pair<Type, List<String>>, Node> expr = visitExpression(ctx.expression());
         List<String> code = new ArrayList<>();
-        code.addAll(expr.getValue());
+        code.addAll(expr.getKey().getValue());
         int exprNum = varCounter - 1;
         for (String id : ids) {
-            switch (expr.getKey()) {
+            switch (expr.getKey().getKey()) {
                 case INT:
                     if (variables.get(id) == Type.BOOLEAN) {
                         code.add("\t%tmp" + varCounter++ + " = trunc i32 %tmp" + exprNum + " to i1");
@@ -751,22 +845,22 @@ public class Vizitor extends ProgrammingLanguageBaseVisitor<Pair<Type, List<Stri
                     throw new IllegalArgumentException("Expressions of type void or string can't be assigned to variable in union");
             }
         }
-        return new Pair<>(Type.VOID, code);
+        return new Pair<>(new Pair<>(Type.VOID, code), null);
     }
 
-    public Pair<Type, List<String>> visitAssignment(@NotNull ProgrammingLanguageParser.AssignmentContext ctx) {
+    public Pair<Pair<Type, List<String>>, Node> visitAssignment(@NotNull ProgrammingLanguageParser.AssignmentContext ctx) {
         String id = ctx.Id().getText();
         if (unionMap.containsKey(id)) {
             return visitUnionAssignment(ctx);
         }
-        Pair<Type, List<String>> expr = visitExpression(ctx.expression());
-        List<String> code = expr.getValue();
-        switch (expr.getKey()) {
+        Pair<Pair<Type, List<String>>, Node> expr = visitExpression(ctx.expression());
+        List<String> code = expr.getKey().getValue();
+        switch (expr.getKey().getKey()) {
             case INT:
                 if (variables.get(id) != Type.INT) {
                     throw new IllegalArgumentException("Can't assign integer to variable of type " + variables.get(id).toString());
                 }
-                code.add("\tstore i32 %tmp" + (varCounter - 1) + ", i32* %var_" + id + nameCounter.get(id) +  ", align 4");
+                code.add("\tstore i32 %tmp" + (varCounter - 1) + ", i32* %var_" + id + nameCounter.get(id) + ", align 4");
                 break;
             case BOOLEAN:
                 if (variables.get(id) != Type.BOOLEAN) {
@@ -785,11 +879,11 @@ public class Vizitor extends ProgrammingLanguageBaseVisitor<Pair<Type, List<Stri
             default:
                 throw new IllegalArgumentException("Expression of type void can't be assigned to anything");
         }
-        return new Pair<>(Type.VOID, code);
+        return new Pair<>(new Pair<>(Type.VOID, code), null);
     }
 
-    public Pair<Type, List<String>> visitDeclarationId(@NotNull ProgrammingLanguageParser.DeclarationIdContext ctx) {
-        Type varType = visitTypeSpecifier(ctx.typeSpecifier()).getKey();
+    public Pair<Pair<Type, List<String>>, Node> visitDeclarationId(@NotNull ProgrammingLanguageParser.DeclarationIdContext ctx) {
+        Type varType = visitTypeSpecifier(ctx.typeSpecifier()).getKey().getKey();
         if (varType == Type.VOID) {
             throw new IllegalArgumentException("Variables of type void can't be created");
         }
@@ -806,18 +900,18 @@ public class Vizitor extends ProgrammingLanguageBaseVisitor<Pair<Type, List<Stri
             }
             code.add("\t%var_" + terminalNode.getText() + nameCounter.get(terminalNode.getText()) + " = alloca " + getLLVMType(varType));
         }
-        return new Pair<>(Type.VOID, code);
+        return new Pair<>(new Pair<>(Type.VOID, code), null);
     }
 
-    public Pair<Type, List<String>> visitChildren(RuleNode ruleNode) {
+    public Pair<Pair<Type, List<String>>, Node> visitChildren(RuleNode ruleNode) {
         return null;
     }
 
-    public Pair<Type, List<String>> visitTerminal(TerminalNode terminalNode) {
+    public Pair<Pair<Type, List<String>>, Node> visitTerminal(TerminalNode terminalNode) {
         return null;
     }
 
-    public Pair<Type, List<String>> visitErrorNode(ErrorNode errorNode) {
+    public Pair<Pair<Type, List<String>>, Node> visitErrorNode(ErrorNode errorNode) {
         return null;
     }
 }
