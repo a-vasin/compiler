@@ -1,6 +1,6 @@
-/**
- * Created by Rabo on 23.04.2015.
- */
+package node;
+
+
 public enum Type {
     VOID,
     INT,

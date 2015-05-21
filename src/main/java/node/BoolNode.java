@@ -1,5 +1,10 @@
 package node;
 
+import javafx.util.Pair;
+
+import java.util.ArrayList;
+import java.util.List;
+
 /**
  * @author Rabo
  */
@@ -24,6 +29,15 @@ public class BoolNode implements Node {
     @Override
     public Node simplify() {
         return this;
+    }
+
+    @Override
+    public Pair<int[], Pair<Type, List<String>>> generateCode(int varCounter, int helpCounter, int constCounter, List<String> constants) {
+        List<String> code = new ArrayList<>();
+        code.add("\t%tmp" + varCounter++ + " = alloca i1");
+        code.add("\tstore i1 " + (value ? 1 : 0) + ", i1* %tmp" + (varCounter - 1));
+        code.add("\t%tmp" + varCounter++ + " = load i1* %tmp" + (varCounter - 2));
+        return new Pair<>(new int[]{varCounter, helpCounter, constCounter}, new Pair<>(Type.BOOLEAN, code));
     }
 
     @Override

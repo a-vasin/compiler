@@ -1,5 +1,10 @@
 package node;
 
+import javafx.util.Pair;
+
+import java.util.ArrayList;
+import java.util.List;
+
 /**
  * @author Rabo
  */
@@ -33,6 +38,25 @@ public class RemNode extends OperationNode {
         }
 
         return this;
+    }
+
+    @Override
+    public Pair<int[], Pair<Type, List<String>>> generateCode(int varCounter, int helpCounter, int constCounter, List<String> constants) {
+        List<String> code = new ArrayList<>();
+        Pair<int[], Pair<Type, List<String>>> leftGenerate = left.generateCode(varCounter, helpCounter, constCounter, constants);
+        varCounter = leftGenerate.getKey()[0];
+        helpCounter = leftGenerate.getKey()[1];
+        constCounter = leftGenerate.getKey()[2];
+        int leftCounter = varCounter - 1;
+        code.addAll(leftGenerate.getValue().getValue());
+        Pair<int[], Pair<Type, List<String>>> rightGenerate = right.generateCode(varCounter, helpCounter, constCounter, constants);
+        varCounter = rightGenerate.getKey()[0];
+        helpCounter = rightGenerate.getKey()[1];
+        constCounter = rightGenerate.getKey()[2];
+        int rightCounter = varCounter - 1;
+        code.addAll(leftGenerate.getValue().getValue());
+        code.add("\t%tmp" + varCounter++ + " = srem i32 %tmp" + leftCounter + ", %tmp" + rightCounter);
+        return new Pair<>(new int[]{varCounter, helpCounter, constCounter}, new Pair<>(Type.INT, code));
     }
 
     @Override

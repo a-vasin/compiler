@@ -1,6 +1,7 @@
 import antlr.ProgrammingLanguageBaseVisitor;
 import antlr.ProgrammingLanguageParser;
 import javafx.util.Pair;
+import node.Type;
 import org.antlr.v4.runtime.misc.NotNull;
 import org.antlr.v4.runtime.tree.ErrorNode;
 import org.antlr.v4.runtime.tree.RuleNode;
