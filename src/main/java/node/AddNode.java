@@ -31,7 +31,7 @@ public class AddNode extends OperationNode {
             return new StringNode(a + b);
         }
 
-        if (left.equals(right) && (left instanceof IntNode)) {
+        if (left.equals(right)) {
             return new MultNode(left, new IntNode(2));
         }
 
@@ -68,7 +68,7 @@ public class AddNode extends OperationNode {
         helpCounter = rightGenerate.getKey()[1];
         constCounter = rightGenerate.getKey()[2];
         int rightCounter = varCounter - 1;
-        code.addAll(leftGenerate.getValue().getValue());
+        code.addAll(rightGenerate.getValue().getValue());
         if (leftGenerate.getValue().getKey() == Type.INT && rightGenerate.getValue().getKey() == Type.INT ) {
             code.add("\t%tmp" + varCounter++ + " = add i32 %tmp" + leftCounter + ", %tmp" + rightCounter);
             return new Pair<>(new int[]{varCounter, helpCounter, constCounter}, new Pair<>(Type.INT, code));
@@ -77,7 +77,7 @@ public class AddNode extends OperationNode {
             code.add("\t%help_tmp" + helpCounter++ + " = getelementptr inbounds [256 x i8]* %tmp" + (varCounter - 1) + ", i32 0, i32 0");
             code.add("\t%help_tmp" + helpCounter++ + " = getelementptr inbounds [256 x i8]* %tmp" + leftCounter + ", i32 0, i32 0");
             code.add("\tcall i8* @strcpy(i8* %help_tmp" + (helpCounter - 2) + ", i8* %help_tmp" + (helpCounter - 1) + ") nounwind");
-            code.add("\t%help_tmp" + helpCounter++ + " = getelementptr inbounds [256 x i8]* %tmp" + right + ", i32 0, i32 0");
+            code.add("\t%help_tmp" + helpCounter++ + " = getelementptr inbounds [256 x i8]* %tmp" + rightCounter + ", i32 0, i32 0");
             code.add("\tcall i8* @strcat(i8* %help_tmp" + (helpCounter - 3) + ", i8* %help_tmp" + (helpCounter - 1) + ") nounwind");
             return new Pair<>(new int[]{varCounter, helpCounter, constCounter}, new Pair<>(Type.STRING, code));
         } else {

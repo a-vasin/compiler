@@ -133,6 +133,13 @@ public class Vizitor extends ProgrammingLanguageBaseVisitor<Pair<Pair<Type, List
         throw new UnsupportedOperationException("Unsupported type");
     }
 
+    private List<String> extractValues(Pair<int[], Pair<Type, List<String>>> generated) {
+        varCounter = generated.getKey()[0];
+        helpCounter = generated.getKey()[1];
+        constCounter = generated.getKey()[2];
+        return generated.getValue().getValue();
+    }
+
     public Pair<Pair<Type, List<String>>, Node> visitFunctionBody(@NotNull ProgrammingLanguageParser.FunctionBodyContext ctx) {
         List<String> code = new LinkedList<>();
 
@@ -145,7 +152,11 @@ public class Vizitor extends ProgrammingLanguageBaseVisitor<Pair<Pair<Type, List
         if (ctx.expression() != null) {
             Pair<Pair<Type, List<String>>, Node> returnStatement = visitExpression(ctx.expression());
             returnType = returnStatement.getKey().getKey();
-            code.addAll(returnStatement.getKey().getValue());
+            if (returnStatement.getValue() != null) {
+                code.addAll(extractValues(returnStatement.getValue().simplify().generateCode(varCounter, helpCounter, constCounter, constants)));
+            } else {
+                code.addAll(returnStatement.getKey().getValue());
+            }
             code.add("\tret " + getLLVMType(returnType)
                     + (returnType == Type.STRING ? "*" : "")
                     + " %tmp" + (varCounter - 1));
@@ -215,10 +226,26 @@ public class Vizitor extends ProgrammingLanguageBaseVisitor<Pair<Pair<Type, List
     public Pair<Pair<Type, List<String>>, Node> visitSelectionStatement(@NotNull ProgrammingLanguageParser.SelectionStatementContext ctx) {
         List<String> code = new ArrayList<>();
         Pair<Pair<Type, List<String>>, Node> expression = visitExpression(ctx.expression());
-        code.addAll(expression.getKey().getValue());
         if (ctx.If() != null) {
             if (expression.getKey().getKey() != Type.BOOLEAN) {
                 throw new IllegalArgumentException("If condition must be boolean");
+            }
+            if (expression.getValue() != null) {
+                Node simplified = expression.getValue().simplify();
+                if (simplified instanceof BoolNode) {
+                    if (((BoolNode) simplified).getValue()) {
+                        return visitCompoundStatement(ctx.compoundStatement(0));
+                    } else {
+                        if (ctx.compoundStatement().size() == 2) {
+                            return visitCompoundStatement(ctx.compoundStatement(1));
+                        } else {
+                            return new Pair<>(new Pair<>(Type.VOID, new ArrayList<>()), null);
+                        }
+                    }
+                }
+                code.addAll(extractValues(simplified.generateCode(varCounter, helpCounter, constCounter, constants)));
+            } else {
+                code.addAll(expression.getKey().getValue());
             }
             int labelTrue = labelCounter++;
             int labelFalse = labelCounter++;
@@ -242,6 +269,11 @@ public class Vizitor extends ProgrammingLanguageBaseVisitor<Pair<Pair<Type, List
             if (expression.getKey().getKey() != Type.INT) {
                 throw new IllegalArgumentException("Switch statement works only for integer type");
             }
+            if (expression.getValue() != null) {
+                code.addAll(extractValues(expression.getValue().simplify().generateCode(varCounter, helpCounter, constCounter, constants)));
+            } else {
+                code.addAll(expression.getKey().getValue());
+            }
             int labelEnd = labelCounter++;
             endLabels.push(labelEnd);
             int firstLabel = labelCounter;
@@ -253,8 +285,12 @@ public class Vizitor extends ProgrammingLanguageBaseVisitor<Pair<Pair<Type, List
                 if (caseExpression.getKey().getKey() != Type.INT) {
                     throw new IllegalArgumentException("Switch statement works only for integer type");
                 }
+                Node exprValue = caseExpression.getValue().simplify();
+                if (!(exprValue instanceof IntNode)) {
+                    throw new IllegalArgumentException("Only constant values are avaliable for switch statement");
+                }
                 code.addAll(caseExpression.getKey().getValue());
-                switchString = switchString + " i32 %tmp" + (varCounter - 1) + ", label %Label" + (firstLabel + i);
+                switchString = switchString + " i32 " + ((IntNode) exprValue).getValue() + ", label %Label" + (firstLabel + i);
             }
             switchString = switchString + "]";
             code.add(switchString);
@@ -300,6 +336,12 @@ public class Vizitor extends ProgrammingLanguageBaseVisitor<Pair<Pair<Type, List
         if (expression.getKey().getKey() != Type.BOOLEAN) {
             throw new IllegalArgumentException("While conditional should be boolean");
         }
+        if (expression.getValue() != null) {
+            Node simplify = expression.getValue().simplify();
+            if (!((BoolNode) simplify).getValue()) {
+                return new Pair<>(new Pair<>(Type.VOID, new ArrayList<>()), null);
+            }
+        }
         int startLabel = labelCounter++;
         int bodyLabel = labelCounter++;
         int endLabel = labelCounter++;
@@ -308,7 +350,11 @@ public class Vizitor extends ProgrammingLanguageBaseVisitor<Pair<Pair<Type, List
 
         code.add("\tbr label %Label" + startLabel);
         code.add("Label" + startLabel + ":");
-        code.addAll(expression.getKey().getValue());
+        if (expression.getValue() != null) {
+            code.addAll(extractValues(expression.getValue().simplify().generateCode(varCounter, helpCounter, constCounter, constants)));
+        } else {
+            code.addAll(expression.getKey().getValue());
+        }
         code.add("\tbr i1 %tmp" + (varCounter - 1) + ", label %Label" + bodyLabel + ", label %Label" + endLabel);
         code.add("Label" + bodyLabel + ":");
         code.addAll(visitCompoundStatement(ctx.compoundStatement()).getKey().getValue());
@@ -331,10 +377,10 @@ public class Vizitor extends ProgrammingLanguageBaseVisitor<Pair<Pair<Type, List
             id += nameCounter.get(id);
             switch (type) {
                 case INT:
-                    code.add("\tcall i32 (i8*, ...)* @scanf(i8* getelementptr inbounds ([3 x i8]* @.read_int, i32 0, i32 0), i32* %var_" + id + nameCounter.get(id) + ") nounwind");
+                    code.add("\tcall i32 (i8*, ...)* @scanf(i8* getelementptr inbounds ([3 x i8]* @.read_int, i32 0, i32 0), i32* %var_" + id + ") nounwind");
                     break;
                 case STRING:
-                    code.add("\t%ptr" + helpCounter++ + " = getelementptr inbounds [256 x i8]* %var_" + id + nameCounter.get(id) + ", i32 0, i32 0");
+                    code.add("\t%ptr" + helpCounter++ + " = getelementptr inbounds [256 x i8]* %var_" + id + ", i32 0, i32 0");
                     code.add("\tcall i32 (i8*, ...)* @scanf(i8* getelementptr inbounds ([6 x i8]* @.read_str, i32 0, i32 0), i8* %ptr" + (helpCounter - 1) + ") nounwind");
                     break;
                 case BOOLEAN:
@@ -342,7 +388,7 @@ public class Vizitor extends ProgrammingLanguageBaseVisitor<Pair<Pair<Type, List
                     code.add("\tcall i32 (i8*, ...)* @scanf(i8* getelementptr inbounds ([3 x i8]* @.read_int, i32 0, i32 0), i32* %bool_tmp" + (varCounter - 1) + ") nounwind");
                     code.add("\t%tmp" + varCounter++ + " = load i32* %bool_tmp" + (varCounter - 2));
                     code.add("\t%tmp" + varCounter++ + " = icmp ne i32 %tmp" + (varCounter - 2) + ", 0");
-                    code.add("\tstore i1 %tmp" + (varCounter - 1) + ", i1* %var_" + id + nameCounter.get(id));
+                    code.add("\tstore i1 %tmp" + (varCounter - 1) + ", i1* %var_" + id);
                     break;
                 default:
                     throw new UnsupportedOperationException("You should not be there");
@@ -350,7 +396,11 @@ public class Vizitor extends ProgrammingLanguageBaseVisitor<Pair<Pair<Type, List
             return new Pair<>(new Pair<>(Type.VOID, code), null);
         } else if (ctx.Write() != null) {
             Pair<Pair<Type, List<String>>, Node> expression = visitExpression(ctx.expression());
-            code.addAll(expression.getKey().getValue());
+            if (expression.getValue() != null) {
+                code.addAll(extractValues(expression.getValue().simplify().generateCode(varCounter, helpCounter, constCounter, constants)));
+            } else {
+                code.addAll(expression.getKey().getValue());
+            }
             Type type = expression.getKey().getKey();
             switch (type) {
                 case INT:
@@ -383,7 +433,20 @@ public class Vizitor extends ProgrammingLanguageBaseVisitor<Pair<Pair<Type, List
             if (expression.getKey().getKey() != Type.STRING) {
                 throw new IllegalArgumentException("Length function works with strings only");
             }
-            code.addAll(expression.getKey().getValue());
+            if (expression.getValue() != null) {
+                Node node = expression.getValue().simplify();
+                if (node instanceof StringNode) {
+                    int len = ((StringNode) node).getValue().length();
+                    List<String> newCode = new ArrayList<>();
+                    newCode.add("\t%tmp" + varCounter++ + " = alloca i32");
+                    newCode.add("\tstore i32 " + len + ", i32* %tmp" + (varCounter - 1));
+                    newCode.add("\t%tmp" + varCounter++ + " = load i32* %tmp" + (varCounter - 2));
+                    return new Pair<>(new Pair<>(Type.INT, newCode), new IntNode(len));
+                }
+                code.addAll(extractValues(expression.getValue().simplify().generateCode(varCounter, helpCounter, constCounter, constants)));
+            } else {
+                code.addAll(expression.getKey().getValue());
+            }
             code.add("\t%help_tmp" + helpCounter++ + " = getelementptr inbounds [256 x i8]* %tmp" + (varCounter - 1) + ", i32 0, i32 0");
             code.add("\t%tmp" + varCounter++ + " = call i32 @strlen(i8* %help_tmp" + (helpCounter - 1) + ") nounwind readonly");
             return new Pair<>(new Pair<>(Type.INT, code), null);
@@ -404,7 +467,11 @@ public class Vizitor extends ProgrammingLanguageBaseVisitor<Pair<Pair<Type, List
                 if (expr.getKey().getKey() != argType) {
                     throw new IllegalArgumentException("Expected type " + argType.toString() + ", found " + expr.getKey() + " for " + argsNum.size() + " argument of call to " + id + " function");
                 }
-                code.addAll(expr.getKey().getValue());
+                if (expr.getValue() != null) {
+                    code.addAll(extractValues(expr.getValue().simplify().generateCode(varCounter, helpCounter, constCounter, constants)));
+                } else {
+                    code.addAll(expr.getKey().getValue());
+                }
                 if (argType != Type.STRING) {
                     code.add("\t%tmp" + varCounter++ + " = alloca " + getLLVMType(expr.getKey().getKey()));
                     code.add("\tstore " + getLLVMType(expr.getKey().getKey()) + " %tmp" + (varCounter - 2) + ", " + getLLVMType(expr.getKey().getKey()) + "* %tmp" + (varCounter - 1));
@@ -620,7 +687,7 @@ public class Vizitor extends ProgrammingLanguageBaseVisitor<Pair<Pair<Type, List
     private Node getAddOperationNode(String operation, Node left, Node right) {
         switch (operation) {
             case "+":
-                return new AndNode(left, right);
+                return new AddNode(left, right);
             case "-":
                 return new SubNode(left, right);
             default:
@@ -798,7 +865,7 @@ public class Vizitor extends ProgrammingLanguageBaseVisitor<Pair<Pair<Type, List
             result.getKey().getValue().add("\t%help_tmp" + helpCounter++ + " = getelementptr inbounds [256 x i8]* %tmp" + (varCounter - 1) + ", i32 0, i32 1");
             result.getKey().getValue().add("\tstore i8 0, i8* %help_tmp" + (helpCounter - 1) + ", align 1");
 
-            Node simplifiedString = result.getValue();
+            Node simplifiedString = result.getValue().simplify();
             Node simplifiedIndex = expr.getValue().simplify();
             if (simplifiedString instanceof StringNode && simplifiedIndex instanceof IntNode) {
                 String str = ((StringNode) simplifiedString).getValue();
@@ -821,7 +888,11 @@ public class Vizitor extends ProgrammingLanguageBaseVisitor<Pair<Pair<Type, List
         List<String> ids = unionMap.get(ctx.Id().getText());
         Pair<Pair<Type, List<String>>, Node> expr = visitExpression(ctx.expression());
         List<String> code = new ArrayList<>();
-        code.addAll(expr.getKey().getValue());
+        if (expr.getValue() != null) {
+            code.addAll(extractValues(expr.getValue().simplify().generateCode(varCounter, helpCounter, constCounter, constants)));
+        } else {
+            code.addAll(expr.getKey().getValue());
+        }
         int exprNum = varCounter - 1;
         for (String id : ids) {
             switch (expr.getKey().getKey()) {
@@ -854,7 +925,12 @@ public class Vizitor extends ProgrammingLanguageBaseVisitor<Pair<Pair<Type, List
             return visitUnionAssignment(ctx);
         }
         Pair<Pair<Type, List<String>>, Node> expr = visitExpression(ctx.expression());
-        List<String> code = expr.getKey().getValue();
+        List<String> code;
+        if (expr.getValue() != null) {
+            code = extractValues(expr.getValue().simplify().generateCode(varCounter, helpCounter, constCounter, constants));
+        } else {
+            code = expr.getKey().getValue();
+        }
         switch (expr.getKey().getKey()) {
             case INT:
                 if (variables.get(id) != Type.INT) {

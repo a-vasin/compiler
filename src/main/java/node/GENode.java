@@ -48,7 +48,7 @@ public class GENode extends OperationNode {
         helpCounter = rightGenerate.getKey()[1];
         constCounter = rightGenerate.getKey()[2];
         int rightCounter = varCounter - 1;
-        code.addAll(leftGenerate.getValue().getValue());
+        code.addAll(rightGenerate.getValue().getValue());
         if (leftGenerate.getValue().getKey() == Type.INT && rightGenerate.getValue().getKey() == Type.INT ) {
             code.add("\t%tmp" + varCounter++ + " = icmp " + "sge" + " i32 %tmp" + leftCounter + ", %tmp" + rightCounter);
             return new Pair<>(new int[]{varCounter, helpCounter, constCounter}, new Pair<>(Type.BOOLEAN, code));

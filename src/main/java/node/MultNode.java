@@ -50,7 +50,7 @@ public class MultNode extends OperationNode {
         helpCounter = rightGenerate.getKey()[1];
         constCounter = rightGenerate.getKey()[2];
         int rightCounter = varCounter - 1;
-        code.addAll(leftGenerate.getValue().getValue());
+        code.addAll(rightGenerate.getValue().getValue());
         code.add("\t%tmp" + varCounter++ + " = mul i32 %tmp" + leftCounter + ", %tmp" + rightCounter);
         return new Pair<>(new int[]{varCounter, helpCounter, constCounter}, new Pair<>(Type.INT, code));
     }

@@ -60,4 +60,23 @@ public class IdNode implements Node {
         }
         return new Pair<>(new int[]{varCounter, helpCounter, constCounter}, new Pair<>(type, code));
     }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof IdNode)) return false;
+
+        IdNode idNode = (IdNode) o;
+
+        return counter == idNode.counter && id.equals(idNode.id) && type == idNode.type;
+
+    }
+
+    @Override
+    public int hashCode() {
+        int result = id.hashCode();
+        result = 31 * result + type.hashCode();
+        result = 31 * result + counter;
+        return result;
+    }
 }
