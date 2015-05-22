@@ -1,0 +1,19 @@
+string reverse(string str) {
+    int i;
+    i = length(str) - 1;
+    string result;
+    result = "";
+    while(i >= 0) {
+        write(str[i]);
+        result = result + str[i];
+        i = i - 1;
+    }
+    return result;
+}
+
+int main() {
+    string str;
+    read(str);
+    write(reverse(str));
+    return 0;
+}

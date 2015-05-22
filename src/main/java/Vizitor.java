@@ -352,7 +352,7 @@ public class Vizitor extends ProgrammingLanguageBaseVisitor<Pair<Pair<Type, List
         }
         if (expression.getValue() != null) {
             Node simplify = expression.getValue().simplify();
-            if (!((BoolNode) simplify).getValue()) {
+            if (simplify instanceof BoolNode && !((BoolNode) simplify).getValue()) {
                 return new Pair<>(new Pair<>(Type.VOID, new ArrayList<>()), null);
             }
         }
@@ -870,7 +870,11 @@ public class Vizitor extends ProgrammingLanguageBaseVisitor<Pair<Pair<Type, List
             if (expr.getKey().getKey() != Type.INT) {
                 throw new IllegalArgumentException("Index must be integer");
             }
-            result.getKey().getValue().addAll(expr.getKey().getValue());
+            if (expr.getValue() != null) {
+                result.getKey().getValue().addAll(extractValues(expr.getValue().simplify().generateCode(varCounter, helpCounter, constCounter, constants)));
+            } else {
+                result.getKey().getValue().addAll(expr.getKey().getValue());
+            }
             result.getKey().getValue().add("\t%tmp" + varCounter++ + " = alloca [256 x i8]");
             result.getKey().getValue().add("\t%help_tmp" + helpCounter++ + " = getelementptr inbounds [256 x i8]* %tmp" + stringNumber + ", i32 0, i32 %tmp" + (varCounter - 2));
             result.getKey().getValue().add("\t%help_tmp" + helpCounter++ + " = load i8* %help_tmp" + (helpCounter - 2));
@@ -885,6 +889,8 @@ public class Vizitor extends ProgrammingLanguageBaseVisitor<Pair<Pair<Type, List
                 String str = ((StringNode) simplifiedString).getValue();
                 Integer index = ((IntNode) simplifiedIndex).getValue();
                 result = new Pair<>(result.getKey(), new StringNode(str.substring(index, index + 1)));
+            } else {
+                result = new Pair<>(result.getKey(), null);
             }
         }
         return result;

@@ -1,0 +1,8 @@
+Компилятор из "toy language" в llvm.
+
+Пример использования:
+compiler.jar input.txt output.txt
+
+В output.txt складывается код на llvm, который можно запустить с помощью lli.
+
+Пример программы на исходном языке находится в example.txt

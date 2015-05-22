@@ -20,6 +20,10 @@ public class IdNode implements Node {
         this.counter = counter;
     }
 
+    public Type getType() {
+        return type;
+    }
+
     @Override
     public Object getValue() {
         return id;

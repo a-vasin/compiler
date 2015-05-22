@@ -31,7 +31,7 @@ public class AddNode extends OperationNode {
             return new StringNode(a + b);
         }
 
-        if (left.equals(right)) {
+        if (left.equals(right) && (left instanceof IntNode || left instanceof IdNode && ((IdNode)left).getType() == Type.INT)) {
             return new MultNode(left, new IntNode(2));
         }
 
