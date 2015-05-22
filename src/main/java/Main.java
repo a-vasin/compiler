@@ -21,7 +21,6 @@ public class Main {
         ParseTree tree = parser.parse();
         List<String> code = new Vizitor().visit(tree).getKey().getValue();
         for (String line : code) {
-            System.out.println(line);
             printWriter.println(line);
         }
 
