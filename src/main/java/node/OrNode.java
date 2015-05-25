@@ -25,6 +25,11 @@ public class OrNode extends OperationNode {
             return new BoolNode(a || b);
         }
 
+        if (left instanceof BoolNode && ((BoolNode) left).getValue()
+                || right instanceof BoolNode && ((BoolNode) right).getValue()) {
+            return new BoolNode(true);
+        }
+
         return this;
     }
 

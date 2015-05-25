@@ -1,0 +1,17 @@
+int main() {
+    int a;
+    read(a);
+    switch(a) {
+        case 0: {
+            write("Zero ");
+        }
+        case 1: {
+            write("One");
+            break;
+        }
+        case 2: {
+            write("Two");
+        }
+    }
+    return 0;
+}

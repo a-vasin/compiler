@@ -527,6 +527,8 @@ public class Vizitor extends ProgrammingLanguageBaseVisitor<Pair<Pair<Type, List
                 andExprNumber = varCounter++;
                 if (node != null && nextAndExpr.getValue() != null) {
                     node = new OrNode(node, nextAndExpr.getValue());
+                } else {
+                    node = null;
                 }
             } else {
                 throw new IllegalArgumentException("Both values must be boolean");
@@ -549,6 +551,8 @@ public class Vizitor extends ProgrammingLanguageBaseVisitor<Pair<Pair<Type, List
                 eqExprNumber = varCounter++;
                 if (node != null && nextEqExpr.getValue() != null) {
                     node = new AndNode(node, nextEqExpr.getValue());
+                } else {
+                    node = null;
                 }
             } else {
                 throw new IllegalArgumentException("Both values must be boolean");
@@ -612,6 +616,8 @@ public class Vizitor extends ProgrammingLanguageBaseVisitor<Pair<Pair<Type, List
                 relExprNumber = varCounter++;
                 if (node != null && nextRelExpr.getValue() != null) {
                     node = getEqOperationNode(ctx.getChild(i * 2 - 1).getText(), node, nextRelExpr.getValue());
+                } else {
+                    node = null;
                 }
                 relExpr = new Pair<>(new Pair<>(Type.BOOLEAN, relExpr.getKey().getValue()), node);
             } else {
@@ -666,6 +672,8 @@ public class Vizitor extends ProgrammingLanguageBaseVisitor<Pair<Pair<Type, List
                 addExprNumber = varCounter++;
                 if (node != null && nextAddExpr.getValue() != null) {
                     node = getRelOperationNode(ctx.getChild(i * 2 - 1).getText(), node, nextAddExpr.getValue());
+                } else {
+                    node = null;
                 }
                 addExpr = new Pair<>(new Pair<>(Type.BOOLEAN, addExpr.getKey().getValue()), node);
             } else if (addExpr.getKey().getKey() == Type.STRING && nextAddExpr.getKey().getKey() == Type.STRING) {
@@ -723,6 +731,8 @@ public class Vizitor extends ProgrammingLanguageBaseVisitor<Pair<Pair<Type, List
                 mulExprNumber = varCounter++;
                 if (node != null && nextMulExpr.getValue() != null) {
                     node = getAddOperationNode(ctx.getChild(i * 2 - 1).getText(), node, nextMulExpr.getValue());
+                } else {
+                    node = null;
                 }
             } else if (mulExpr.getKey().getKey() == Type.STRING && nextMulExpr.getKey().getKey() == Type.STRING) {
                 mulExpr.getKey().getValue().addAll(nextMulExpr.getKey().getValue());
@@ -735,6 +745,8 @@ public class Vizitor extends ProgrammingLanguageBaseVisitor<Pair<Pair<Type, List
                 mulExprNumber = varCounter - 1;
                 if (node != null && nextMulExpr.getValue() != null) {
                     node = getAddOperationNode(ctx.getChild(i * 2 - 1).getText(), node, nextMulExpr.getValue());
+                } else {
+                    node = null;
                 }
             } else {
                 throw new IllegalArgumentException("Both values must have int or string type");
@@ -784,6 +796,8 @@ public class Vizitor extends ProgrammingLanguageBaseVisitor<Pair<Pair<Type, List
                 atomNumber = varCounter++;
                 if (node != null && nextAtom.getValue() != null) {
                     node = getMulOperationNode(ctx.getChild(i * 2 - 1).getText(), node, nextAtom.getValue());
+                } else {
+                    node = null;
                 }
             } else {
                 throw new IllegalArgumentException("Both values must have int type");

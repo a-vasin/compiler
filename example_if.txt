@@ -1,0 +1,13 @@
+int main() {
+    int a;
+    read(a);
+    if (a >= 0) {
+        write("Positive\0A");
+    } else {
+        write("Negative\0A");
+    }
+
+    if (a == 0) {
+        write("Zero")
+    }
+}

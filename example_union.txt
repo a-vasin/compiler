@@ -1,0 +1,25 @@
+int main() {
+    union{
+        int x, y;
+        bool a;
+    }
+
+    x = 127;
+    write(x);
+    write(" ");
+    write(y);
+    write(" ");
+    write(a);
+    // Special character for new line
+    write("\0A")
+
+    a = true;
+
+    write(x);
+    write(" ");
+    write(y);
+    write(" ");
+    write(a);
+
+    return 0;
+}
