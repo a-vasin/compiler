@@ -42,11 +42,15 @@ All code examples listed in example_*.txt files for ability to compile and run t
 
 Compiler usage examples:
 ```
-compiler.jar input.txt output.txt
+java -jar compiler.jar input.txt output.txt
 ```
+
+compiler.jar - jar file, which could be built with Maven
 
 input.txt - input code
 
 output.txt - produced LLVM code
+
+Also you can run compiler directly from Java
 
 Please, use [lli](https://releases.llvm.org/5.0.0/docs/CommandGuide/lli.html) for running LLVM code.
