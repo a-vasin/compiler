@@ -15,7 +15,7 @@ Full grammar for PL is available [here](https://github.com/a-vasin/compiler/blob
 * string - string value with access to characters by index
 * void - type for function, which returns no value
 
-### Constructions
+### Operators
 There is only a brief overview. Please, see examples for more.
 * while - standard while cycle, which keeps running until condition is true. Supports break and continue operators
 * if/then/else - conditional operator with optional else clause
