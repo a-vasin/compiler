@@ -8,7 +8,7 @@ Entry point is main function with type int:
 int main(){}
 ```
 
-Grammar for PL is available [here](https://github.com/a-vasin/compiler/blob/master/src/main/java/ProgrammingLanguage.g4)
+Full grammar for PL is available [here](https://github.com/a-vasin/compiler/blob/master/src/main/java/ProgrammingLanguage.g4)
 ### Datatypes
 * int - standard 32-bit integer number
 * bool - boolean with two possible values: true and false
@@ -20,7 +20,7 @@ There is only a brief overview. Please, see examples for more.
 * while - standard while cycle, which keeps running until condition is true. Supports break and continue operators
 * if/then/else - conditional operator with optional else clause
 * switch - conditional operator for choice based on value equality
-* union - operator for uniting bits for different values
+* union - operator for uniting bits for different variables
 
 ### Built-in functions
 Again only a brief everview. Please, see examples for more.
@@ -28,7 +28,7 @@ Again only a brief everview. Please, see examples for more.
 * write - write value to standard output (please, use \0A for new lines)
 * length - returns length of a string
 * ==, !=, &&, || - logic operators
-* +, -, *, /, % - arithmetic operators
+* +, -, *, /, \% - arithmetic operators
 
 ## Compiler optimizations
 Same thing with examples =)
