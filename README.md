@@ -5,7 +5,9 @@ PL has static typing with simple datatypes and functions.
 
 Entry point is main function with type int:
 ```
-int main(){}
+int main(){
+  return 0;
+}
 ```
 
 Full grammar for PL is available [here](https://github.com/a-vasin/compiler/blob/master/src/main/java/ProgrammingLanguage.g4)
